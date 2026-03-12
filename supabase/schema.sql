@@ -136,6 +136,15 @@ CREATE TABLE supplement_logs (
 
 CREATE INDEX idx_supplement_logs_date ON supplement_logs(date);
 
+-- Conversation state for tracking check-in reply flow
+-- Used by the unified Telegram handler to know if user is replying to evening check-in
+CREATE TABLE conversation_state (
+  chat_id TEXT PRIMARY KEY,
+  state TEXT DEFAULT 'idle' CHECK (state IN ('idle', 'awaiting_checkin')),
+  context JSONB, -- stores food summary context when awaiting check-in reply
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes for common queries
 CREATE INDEX idx_food_logs_date ON food_logs(date);
 CREATE INDEX idx_daily_summaries_date ON daily_summaries(date);
