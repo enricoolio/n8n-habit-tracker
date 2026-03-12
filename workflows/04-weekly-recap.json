@@ -13,7 +13,7 @@
           ]
         }
       },
-      "id": "cron-sunday",
+      "id": "1847c9e5-a4fe-434a-862f-c27e3de39a0f",
       "name": "Every Sunday at 8pm",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -39,7 +39,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-week-summaries",
+      "id": "60d0f9c9-b067-4526-88dc-52f96d6eb89e",
       "name": "Fetch Week Summaries",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -70,7 +70,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-week-food",
+      "id": "c401c405-0164-4776-994c-b2550289428b",
       "name": "Fetch Week Food Logs",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -89,7 +89,7 @@
       "parameters": {
         "jsCode": "// Compile weekly stats from daily summaries and food logs\nconst summaries = $('Fetch Week Summaries').all().map(i => i.json);\nconst foods = $('Fetch Week Food Logs').all().map(i => i.json);\n\nconst days = summaries.length || 1;\n\n// Food averages\nconst totalCal = foods.reduce((s, f) => s + (f.calories || 0), 0);\nconst totalProtein = foods.reduce((s, f) => s + (parseFloat(f.protein_g) || 0), 0);\nconst totalCarbs = foods.reduce((s, f) => s + (parseFloat(f.carbs_g) || 0), 0);\nconst totalFat = foods.reduce((s, f) => s + (parseFloat(f.fat_g) || 0), 0);\nconst totalFiber = foods.reduce((s, f) => s + (parseFloat(f.fiber_g) || 0), 0);\n\n// Habit completions\nconst habits = {\n  sleep: summaries.filter(s => s.sleep_8h).length,\n  eat: summaries.filter(s => s.eat_healthy).length,\n  workout: summaries.filter(s => s.workout_done).length,\n  steps: summaries.filter(s => s.steps_10k).length,\n  read: summaries.filter(s => s.read_30min).length,\n  supplements: summaries.filter(s => s.supplements).length,\n  positivity: summaries.filter(s => s.positivity).length,\n  reflection: summaries.filter(s => s.calendar_reflection).length\n};\n\n// Steps\nconst totalSteps = summaries.reduce((s, d) => s + (d.steps || 0), 0);\nconst avgSteps = Math.round(totalSteps / days);\nconst daysWithTenKSteps = summaries.filter(s => s.steps_10k).length;\n\n// Average habit percentage per day\nconst dailyPercentages = summaries.map(s => {\n  const checked = [s.sleep_8h, s.eat_healthy, s.workout_done, s.steps_10k, s.read_30min, s.supplements, s.positivity, s.calendar_reflection].filter(Boolean).length;\n  return (checked / 8) * 100;\n});\nconst avgHabitPercentage = dailyPercentages.length > 0\n  ? (dailyPercentages.reduce((a, b) => a + b, 0) / dailyPercentages.length).toFixed(2)\n  : '0.00';\n\n// Food quality breakdown\nconst qualityCounts = { clean: 0, decent: 0, processed: 0, junk: 0 };\nfor (const f of foods) {\n  if (f.food_quality && qualityCounts[f.food_quality] !== undefined) {\n    qualityCounts[f.food_quality]++;\n  }\n}\n\n// Best and worst days\nlet bestDay = null, worstDay = null, bestPct = -1, worstPct = 101;\nfor (const s of summaries) {\n  const checked = [s.sleep_8h, s.eat_healthy, s.workout_done, s.steps_10k, s.read_30min, s.supplements, s.positivity, s.calendar_reflection].filter(Boolean).length;\n  const pct = (checked / 8) * 100;\n  if (pct > bestPct) { bestPct = pct; bestDay = s.date; }\n  if (pct < worstPct) { worstPct = pct; worstDay = s.date; }\n}\n\nconst weekData = {\n  days,\n  avgDailyCal: Math.round(totalCal / days),\n  avgDailyProtein: (totalProtein / days).toFixed(1),\n  avgDailyCarbs: (totalCarbs / days).toFixed(1),\n  avgDailyFat: (totalFat / days).toFixed(1),\n  avgDailyFiber: (totalFiber / days).toFixed(1),\n  totalCal,\n  totalSteps,\n  avgSteps,\n  daysWithTenKSteps,\n  avgHabitPercentage,\n  habits,\n  qualityCounts,\n  bestDay, worstDay, bestPct, worstPct,\n  totalMeals: foods.length\n};\n\n// Build prompt for Claude\nconst prompt = `Generate a weekly fitness & nutrition recap based on this data. Be blunt and actionable.\n\nWEEK DATA (${days} days tracked):\n- Avg daily calories: ${weekData.avgDailyCal} kcal (goal: ~1900-2100)\n- Avg daily protein: ${weekData.avgDailyProtein}g (goal: 170g)\n- Avg daily carbs: ${weekData.avgDailyCarbs}g\n- Avg daily fat: ${weekData.avgDailyFat}g\n- Avg daily fiber: ${weekData.avgDailyFiber}g\n- Total meals: ${weekData.totalMeals}\n- Food quality: ${qualityCounts.clean} clean, ${qualityCounts.decent} decent, ${qualityCounts.processed} processed, ${qualityCounts.junk} junk\n\nACTIVITY:\n- Total steps: ${totalSteps} (avg ${avgSteps}/day)\n- Days with 10k+ steps: ${daysWithTenKSteps}/${days}\n- Workouts: ${habits.workout}/week\n\nHABIT COMPLETION (out of ${days} days):\n- Sleep 8h: ${habits.sleep}/${days}\n- Eat healthy: ${habits.eat}/${days}\n- Workout: ${habits.workout}/${days}\n- 10k steps: ${habits.steps}/${days}\n- Read 30min: ${habits.read}/${days}\n- Supplements: ${habits.supplements}/${days}\n- Positivity: ${habits.positivity}/${days}\n- Calendar/Reflection: ${habits.reflection}/${days}\n- Average daily habit score: ${avgHabitPercentage}%\n\nBest day: ${bestDay} (${bestPct}%) | Worst day: ${worstDay} (${worstPct}%)\n\nProvide:\n1. One-paragraph blunt assessment\n2. Top 3 specific improvements for next week\n3. One thing done well to keep doing\n\nKeep it under 200 words. Telegram format.`;\n\nreturn [{ json: { weekData, prompt } }];"
       },
-      "id": "compile-week-stats",
+      "id": "bc1d1e66-d713-478c-b6d5-a9772137e6e7",
       "name": "Compile Week Stats",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -121,7 +121,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a blunt, no-BS fitness coach providing weekly recaps. Be specific and actionable. Reference actual numbers. Don't sugarcoat.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.prompt) }}\n    }\n  ]\n}"
       },
-      "id": "claude-weekly-recap",
+      "id": "2afa136e-fcee-45e5-b17d-5b18ef33887f",
       "name": "Claude - Weekly Recap",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -171,7 +171,7 @@
           "mode": "name"
         }
       },
-      "id": "save-weekly-recap",
+      "id": "e06b5da8-25f9-4d65-a2d3-0cfad05de8cc",
       "name": "Save Weekly Recap",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -194,7 +194,7 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "send-recap",
+      "id": "6557e2cb-489c-48f2-bafe-778e43f5df0b",
       "name": "Send Weekly Recap",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -285,5 +285,8 @@
     {
       "name": "habit-tracker"
     }
-  ]
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
 }

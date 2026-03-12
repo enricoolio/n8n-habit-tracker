@@ -8,7 +8,7 @@
         ],
         "additionalFields": {}
       },
-      "id": "telegram-trigger",
+      "id": "10858bbc-ac3e-49f8-a638-0efcb77a0ee0",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
@@ -40,7 +40,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-state",
+      "id": "af5c4bf7-e1b6-40d5-9bb7-3c675e1d36f4",
       "name": "Fetch Conversation State",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -153,7 +153,7 @@
         },
         "options": {}
       },
-      "id": "state-router",
+      "id": "a0f3ec17-7827-4052-9124-2617df317678",
       "name": "Route by State & Type",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
@@ -167,7 +167,7 @@
       "parameters": {
         "jsCode": "// Parse the user's reply to determine which habits were completed\nconst msg = $node['Telegram Trigger'].json.message;\nconst reply = (msg.text || '').toLowerCase();\n\n// Smart matching for each habit\nconst habits = {\n  sleep_8h: /sleep|slept|8\\s*h|well.rested|good\\s*night/i.test(reply),\n  eat_healthy: /eat|ate|healthy|clean|on\\s*plan|nutrition/i.test(reply),\n  workout_done: /workout|gym|train|weights|cardio|exercise|lift|run|yoga/i.test(reply),\n  steps_10k: /step|walk|10k|10,?000/i.test(reply),\n  read_30min: /read|book|learn|study|article|podcast/i.test(reply),\n  supplements: /supplement|pill|vitamin|magnesium|omega|creatine/i.test(reply),\n  positivity: /positiv|grateful|thankful|gratefulness|mindful|meditat/i.test(reply),\n  calendar_reflection: /calendar|reflect|plan|journal|review/i.test(reply)\n};\n\n// Retrieve food context stored by the evening cron\nconst stateContext = $node['Fetch Conversation State'].json.context || {};\nconst totalCal = stateContext.totalCal || 0;\nconst totalProtein = stateContext.totalProtein || 0;\nconst totalCarbs = stateContext.totalCarbs || 0;\nconst totalFat = stateContext.totalFat || 0;\nconst mealCount = stateContext.mealCount || 0;\nconst isTrainingDay = stateContext.isTrainingDay || false;\nconst goal = stateContext.goal || 1900;\n\n// If food was logged today, auto-check eat_healthy based on calorie adherence\nif (totalCal > 0 && totalCal <= goal + 100 && totalProtein >= 140) {\n  habits.eat_healthy = true;\n}\n\n// Count completed habits\nconst completed = Object.values(habits).filter(Boolean).length;\nconst total = Object.keys(habits).length;\nconst percentage = Math.round((completed / total) * 100);\n\nreturn [{ json: { habits, completed, total, percentage, rawReply: reply, totalCal, totalProtein, totalCarbs, totalFat, mealCount, isTrainingDay, goal } }];"
       },
-      "id": "parse-checkin-reply",
+      "id": "c8481a75-d2d8-447d-be9c-af73b50a3d3e",
       "name": "Parse Check-in Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -200,7 +200,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"filter\": {\n    \"property\": \"Date\",\n    \"date\": { \"equals\": \"{{ $now.format('yyyy-MM-dd') }}\" }\n  }\n}"
       },
-      "id": "find-notion-page",
+      "id": "ace97ad6-52fa-414c-a4e5-969d54d60522",
       "name": "Find Today's Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -214,7 +214,7 @@
       "parameters": {
         "jsCode": "// Check if a Notion page was found for today, or create one\nconst results = $json.results || [];\nconst habits = $node['Parse Check-in Reply'].json.habits;\nconst parsedData = $node['Parse Check-in Reply'].json;\n\nif (results.length > 0) {\n  // Page exists - use it\n  return [{ json: { notionPageId: results[0].id, action: 'update', habits, parsedData } }];\n} else {\n  // No page for today - need to create one\n  return [{ json: { notionPageId: null, action: 'create', habits, parsedData } }];\n}"
       },
-      "id": "check-notion-page",
+      "id": "7a03cf4a-f193-4af9-afb7-7a3fc586ec31",
       "name": "Check Notion Page Exists",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -265,7 +265,7 @@
         },
         "options": {}
       },
-      "id": "notion-page-router",
+      "id": "122cb2cf-c267-4616-aa71-2503e237a1d4",
       "name": "Create or Update?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
@@ -297,7 +297,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"parent\": { \"database_id\": \"2d8d975446f2812e903fe564f59453a2\" },\n  \"properties\": {\n    \"what went wrong?\": { \"title\": [{ \"text\": { \"content\": \"\" } }] },\n    \"Date\": { \"date\": { \"start\": \"{{ $now.format('yyyy-MM-dd') }}\" } },\n    \"8 hours sleep\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.sleep_8h }} },\n    \"Eat healthy \": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.eat_healthy }} },\n    \"Work out\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.workout_done }} },\n    \"10.000 Steps\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.steps_10k }} },\n    \"Read 30 minutes\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.read_30min }} },\n    \"Supplements\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.supplements }} },\n    \"Positivity\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.positivity }} },\n    \"Calendar & Reflection\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.calendar_reflection }} }\n  }\n}"
       },
-      "id": "create-notion-page",
+      "id": "a6b36b56-9eb0-4e16-b01a-a68ee02c23a7",
       "name": "Create Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -330,7 +330,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"properties\": {\n    \"8 hours sleep\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.sleep_8h }} },\n    \"Eat healthy \": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.eat_healthy }} },\n    \"Work out\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.workout_done }} },\n    \"10.000 Steps\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.steps_10k }} },\n    \"Read 30 minutes\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.read_30min }} },\n    \"Supplements\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.supplements }} },\n    \"Positivity\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.positivity }} },\n    \"Calendar & Reflection\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.calendar_reflection }} }\n  }\n}"
       },
-      "id": "update-notion-page",
+      "id": "b3d38bf4-dbcf-4890-897a-ff01aaecfebd",
       "name": "Update Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -379,7 +379,7 @@
           "date"
         ]
       },
-      "id": "save-daily-summary",
+      "id": "c2fe79d0-c4dc-489d-9d58-383c97dc6b3e",
       "name": "Save Daily Summary",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -419,7 +419,7 @@
           "chat_id"
         ]
       },
-      "id": "reset-state",
+      "id": "b082f03e-7e1d-41d9-9447-4b7e83e6284d",
       "name": "Reset State to Idle",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -440,7 +440,7 @@
         "text": "=Logged! Today: {{ $node['Parse Check-in Reply'].json.completed }}/{{ $node['Parse Check-in Reply'].json.total }} habits ({{ $node['Parse Check-in Reply'].json.percentage }}%)\n\nFood: {{ $node['Parse Check-in Reply'].json.totalCal }} / {{ $node['Parse Check-in Reply'].json.goal }} kcal\nProtein: {{ Math.round($node['Parse Check-in Reply'].json.totalProtein) }} / 170g\n\n{{ $node['Parse Check-in Reply'].json.percentage >= 75 ? 'Solid day. Keep it up.' : $node['Parse Check-in Reply'].json.percentage >= 50 ? 'Decent effort. Room for improvement tomorrow.' : 'Rough day. Reset tomorrow - no excuses.' }}",
         "additionalFields": {}
       },
-      "id": "send-checkin-summary",
+      "id": "df7eee4a-8103-4561-9a5d-aa7d946adb4e",
       "name": "Send Check-in Summary",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -459,7 +459,7 @@
       "parameters": {
         "jsCode": "// Handle bot commands\nconst text = ($node['Telegram Trigger'].json.message.text || '').trim();\nconst cmd = text.split(' ')[0].toLowerCase();\n\nlet reply = '';\n\nswitch (cmd) {\n  case '/help':\n    reply = `Available commands:\n/help - Show this message\n/totals - Today's food totals\n/training - Toggle training day\n/recap - Quick weekly summary\n\nOr just send me:\n- Text describing what you ate\n- A photo of your food\n- A voice note about your meal`;\n    break;\n  case '/totals':\n    reply = 'FETCHING_TOTALS';\n    break;\n  case '/training':\n    reply = 'TOGGLE_TRAINING';\n    break;\n  case '/recap':\n    reply = 'WEEKLY_RECAP';\n    break;\n  default:\n    reply = `Unknown command: ${cmd}\\nTry /help for available commands.`;\n}\n\nreturn [{ json: { reply, cmd } }];"
       },
-      "id": "handle-command",
+      "id": "1fc9e414-13a4-4375-8720-826be2b44412",
       "name": "Handle Command",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -477,7 +477,7 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "reply-command",
+      "id": "f2370a1b-60f1-4ec4-8dd7-91b06cc05c83",
       "name": "Reply to Command",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -506,7 +506,7 @@
           ]
         }
       },
-      "id": "get-photo-file",
+      "id": "f567eabe-5741-4c40-837d-9fa58571a301",
       "name": "Get Photo File",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -526,7 +526,7 @@
           }
         }
       },
-      "id": "download-photo",
+      "id": "57f9e5ea-1a19-42c4-8e2d-906e121aa1df",
       "name": "Download Photo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -539,7 +539,7 @@
       "parameters": {
         "jsCode": "// Convert downloaded binary image to base64 for Claude vision API\nconst binaryData = $input.item.binary;\nif (!binaryData || !binaryData.data) {\n  throw new Error('No binary data found from photo download');\n}\n\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst base64 = buffer.toString('base64');\n\n// Determine media type from file extension\nconst fileName = binaryData.data.fileName || 'photo.jpg';\nlet mediaType = 'image/jpeg';\nif (fileName.endsWith('.png')) mediaType = 'image/png';\nelse if (fileName.endsWith('.webp')) mediaType = 'image/webp';\nelse if (fileName.endsWith('.gif')) mediaType = 'image/gif';\n\n// Build photo URL for storage\nconst filePath = $node['Get Photo File'].json.result.file_path;\n\nreturn [{ json: { base64, mediaType, photoUrl: `telegram://file/${filePath}`, caption: $node['Telegram Trigger'].json.message.caption || 'See attached photo' } }];"
       },
-      "id": "encode-photo-base64",
+      "id": "0d661e84-ebda-491b-9b39-2662bb62ee88",
       "name": "Encode Photo Base64",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -568,7 +568,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-todays-meals-photo",
+      "id": "58340af3-a913-49bd-a9be-5ef3ca351064",
       "name": "Fetch Meals (Photo)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -587,7 +587,7 @@
       "parameters": {
         "jsCode": "// Build context for photo analysis\nconst meals = $input.all().map(i => i.json);\n\nlet runningTotal = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };\nlet mealList = [];\n\nfor (const meal of meals) {\n  runningTotal.calories += meal.calories || 0;\n  runningTotal.protein += parseFloat(meal.protein_g) || 0;\n  runningTotal.carbs += parseFloat(meal.carbs_g) || 0;\n  runningTotal.fat += parseFloat(meal.fat_g) || 0;\n  runningTotal.fiber += parseFloat(meal.fiber_g) || 0;\n  mealList.push(`- ${meal.meal_name}: ${meal.calories} kcal, P:${meal.protein_g}g C:${meal.carbs_g}g F:${meal.fat_g}g`);\n}\n\nconst today = new Date();\nconst dayOfWeek = today.getDay();\nconst isTrainingDay = [1, 3, 5].includes(dayOfWeek);\nconst calorieGoal = isTrainingDay ? 2100 : 1900;\n\nconst context = `Today: ${today.toISOString().split('T')[0]} | ${isTrainingDay ? 'Training' : 'Rest'} day (${calorieGoal} kcal goal)\\nMeals so far: ${meals.length}\\n${mealList.join('\\n')}\\nRunning: ${runningTotal.calories}/${calorieGoal} kcal | P: ${runningTotal.protein.toFixed(1)}/170g`;\n\nreturn [{ json: { context, isTrainingDay, calorieGoal, runningTotal } }];"
       },
-      "id": "build-context-photo",
+      "id": "5650aac1-a91e-4457-864c-348fc2d0073e",
       "name": "Build Context (Photo)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -619,7 +619,7 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\\n\\n## Baseline & Goals (NEVER DROP THESE)\\n\\n- Current weight: ~84 kg | Target: ~80 kg\\n- BMR: 2216 kcal\\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\\n- Protein target: 170 g/day\\n- Training plan: 3x weights, 1x cardio per week\\n\\n## Your Role\\n\\nTrack every meal logged (assume eaten unless stated otherwise). Always calculate calories + macros in explicit ledger format. Include food quality notes and blunt behavioral feedback.\\n\\n## Rules\\n\\n1. Always show math: meal breakdown -> running total -> remaining vs goal\\n2. Always reference BMR + daily goal in totals\\n3. Be conservative: overestimate calories when unsure\\n4. Assume normal portions unless specified\\n5. Process one meal at a time unless recap requested\\n6. Never drop baseline stats\\n\\n## When receiving a PHOTO\\n\\n- If it's a **food photo**: identify the food, estimate portion size, calculate macros\\n- If it's a **nutrition label**: read the label values exactly, ask about portion count if unclear\\n- If unclear, ask what it is\\n\\n## When receiving TEXT\\n\\n- Parse the food description and estimate macros\\n- If the user says something like \\\"the usual\\\" or references previous meals, use the conversation context\\n\\n## When receiving VOICE (transcribed text)\\n\\n- Treat the transcription as text input and parse food items from it\\n\\n## Response Format (per meal)\\n\\n```\\n[Meal emoji] [Meal name]\\nCalories: XXX kcal\\nP: XX g | C: XX g | F: XX g\\n[Quality note if relevant]\\n\\n--- Daily Total ---\\nCalories: XXXX / XXXX kcal (BMR: 2216)\\nProtein: XXX / 170 g\\nCarbs: XXX g | Fat: XXX g\\nRemaining: XXX kcal | XXX g protein\\n```\\n\\n## Brief Comment\\n\\nAfter each meal, add ONE line of blunt feedback:\\n- \\\"Ultra-processed - won't keep you full.\\\"\\n- \\\"Behind on protein - fix at dinner.\\\"\\n- \\\"Perfect: high volume, high protein, clean.\\\"\\n- \\\"Lazy delivery habit - hurts the goal.\\\"\\n- \\\"Great fuel for workout.\\\"\\n\\n## Meal Priorities\\n\\n- High protein, high volume\\n- Lean protein + veg + fiber\\n- Low calorie density\\n- Structured & repeatable\\n- Support training & recovery\\n\\n## Important Context\\n\\n- You receive the current day's meal history as context with each message\\n- The `is_training_day` flag tells you whether to use 1900 or 2100 kcal goal\\n- Keep responses concise for Telegram - no walls of text\\n- Use emoji sparingly but effectively for readability\\n\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"image\",\n          \"source\": {\n            \"type\": \"base64\",\n            \"media_type\": {{ JSON.stringify($node['Encode Photo Base64'].json.mediaType) }},\n            \"data\": {{ JSON.stringify($node['Encode Photo Base64'].json.base64) }}\n          }\n        },\n        {\n          \"type\": \"text\",\n          \"text\": {{ JSON.stringify($node['Build Context (Photo)'].json.context + '\\n\\nAnalyze this food photo. ' + $node['Encode Photo Base64'].json.caption) }}\n        }\n      ]\n    }\n  ]\n}"
       },
-      "id": "claude-photo-analysis",
+      "id": "6d9dabb1-fe4a-41f0-8bce-6d3b451825b1",
       "name": "Claude - Analyze Food (Photo)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -633,7 +633,7 @@
       "parameters": {
         "jsCode": "// Parse Claude's response and extract macro values\nconst response = $json.content[0].text;\n\nconst calorieMatch = response.match(/Calories:\\s*(\\d+)/i);\nconst proteinMatch = response.match(/P(?:rotein)?:\\s*([\\d.]+)/i);\nconst carbsMatch = response.match(/C(?:arbs)?:\\s*([\\d.]+)/i);\nconst fatMatch = response.match(/F(?:at)?:\\s*([\\d.]+)/i);\nconst fiberMatch = response.match(/Fiber:\\s*([\\d.]+)/i);\nconst sodiumMatch = response.match(/Sodium:\\s*([\\d.]+)/i);\n\nconst lines = response.split('\\n').filter(l => l.trim());\nconst mealName = lines[0].replace(/^[^a-zA-Z]*/, '').trim();\n\nlet foodQuality = 'decent';\nif (response.match(/ultra.processed|junk|lazy|terrible/i)) foodQuality = 'junk';\nelse if (response.match(/processed|mediocre|not great/i)) foodQuality = 'processed';\nelse if (response.match(/clean|perfect|excellent|great fuel/i)) foodQuality = 'clean';\n\nconst commentLines = response.split('\\n').filter(l => l.startsWith('\"') || l.startsWith('\\u201c') || l.includes('\\u2014') || l.includes('-'));\nconst aiComment = commentLines.length > 0 ? commentLines[commentLines.length - 1].replace(/^[\"\\u201c]|[\"\\u201d]$/g, '').trim() : '';\n\n// Infer meal type from current hour\nconst hour = new Date().getHours();\nlet mealType = 'snack';\nif (hour < 11) mealType = 'breakfast';\nelse if (hour < 14) mealType = 'lunch';\nelse if (hour >= 17) mealType = 'dinner';\n\nreturn [{\n  json: {\n    meal_name: mealName || 'Meal',\n    meal_type: mealType,\n    calories: parseInt(calorieMatch?.[1]) || 0,\n    protein_g: parseFloat(proteinMatch?.[1]) || 0,\n    carbs_g: parseFloat(carbsMatch?.[1]) || 0,\n    fat_g: parseFloat(fatMatch?.[1]) || 0,\n    fiber_g: fiberMatch ? parseFloat(fiberMatch[1]) : null,\n    sodium_mg: sodiumMatch ? parseFloat(sodiumMatch[1]) : null,\n    food_quality: foodQuality,\n    ai_comment: aiComment,\n    claude_response: response\n  }\n}];"
       },
-      "id": "parse-photo-response",
+      "id": "c1b5f526-6ff1-4201-9c6c-0dc17a834b21",
       "name": "Parse Photo Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -676,7 +676,7 @@
           "mode": "name"
         }
       },
-      "id": "save-photo-meal",
+      "id": "938c8a07-f04a-4a94-b0eb-24dd2c6610d5",
       "name": "Save Photo Meal",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -699,7 +699,7 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "reply-photo",
+      "id": "484e8f66-120d-436e-9f44-de4ccd256edf",
       "name": "Reply (Photo)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -728,7 +728,7 @@
           ]
         }
       },
-      "id": "get-voice-file",
+      "id": "025bd2af-9747-4e33-88ca-25d605152dfd",
       "name": "Get Voice File",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -748,7 +748,7 @@
           }
         }
       },
-      "id": "download-voice",
+      "id": "b02b485a-a91e-4f08-96d6-ae7ce3cfce5e",
       "name": "Download Voice",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -783,7 +783,7 @@
           ]
         }
       },
-      "id": "whisper-transcribe",
+      "id": "61470b2c-6363-416b-9138-e11ddd52a3f1",
       "name": "Transcribe (Whisper)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -797,7 +797,7 @@
       "parameters": {
         "jsCode": "// Use the transcribed text as the meal description\nconst transcription = $json.text || '';\nreturn [{ json: { text: transcription, inputType: 'voice' } }];"
       },
-      "id": "voice-to-text",
+      "id": "2abe36f6-94a1-4d90-bede-45e2823655f6",
       "name": "Voice to Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -825,7 +825,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-todays-meals-text",
+      "id": "50c0e833-dc92-451b-921c-95bda345145a",
       "name": "Fetch Meals (Text)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -844,7 +844,7 @@
       "parameters": {
         "jsCode": "// Build context for Claude from today's meals\nconst meals = $input.all().map(i => i.json);\n\nlet runningTotal = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };\nlet mealList = [];\n\nfor (const meal of meals) {\n  runningTotal.calories += meal.calories || 0;\n  runningTotal.protein += parseFloat(meal.protein_g) || 0;\n  runningTotal.carbs += parseFloat(meal.carbs_g) || 0;\n  runningTotal.fat += parseFloat(meal.fat_g) || 0;\n  runningTotal.fiber += parseFloat(meal.fiber_g) || 0;\n  mealList.push(`- ${meal.meal_name}: ${meal.calories} kcal, P:${meal.protein_g}g C:${meal.carbs_g}g F:${meal.fat_g}g`);\n}\n\nconst today = new Date();\nconst dayOfWeek = today.getDay();\nconst isTrainingDay = [1, 3, 5].includes(dayOfWeek);\nconst calorieGoal = isTrainingDay ? 2100 : 1900;\n\nconst context = `\\n## Today's Date: ${today.toISOString().split('T')[0]}\\n## Training Day: ${isTrainingDay ? 'YES (2100 kcal goal)' : 'NO (1900 kcal goal)'}\\n## Meals so far today (${meals.length} meals):\\n${mealList.length > 0 ? mealList.join('\\n') : 'No meals logged yet'}\\n\\n## Running Total:\\nCalories: ${runningTotal.calories} / ${calorieGoal} kcal\\nProtein: ${runningTotal.protein.toFixed(1)} / 170 g\\nCarbs: ${runningTotal.carbs.toFixed(1)} g\\nFat: ${runningTotal.fat.toFixed(1)} g\\nFiber: ${runningTotal.fiber.toFixed(1)} g\\nRemaining: ${calorieGoal - runningTotal.calories} kcal | ${(170 - runningTotal.protein).toFixed(1)}g protein\\n`;\n\nreturn [{ json: { context, isTrainingDay, calorieGoal, runningTotal } }];"
       },
-      "id": "build-meal-context",
+      "id": "e18aed77-5d26-45ff-9a07-ec14c2d8e70c",
       "name": "Build Meal Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -877,7 +877,7 @@
         "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\\n\\n## Baseline & Goals (NEVER DROP THESE)\\n\\n- Current weight: ~84 kg | Target: ~80 kg\\n- BMR: 2216 kcal\\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\\n- Protein target: 170 g/day\\n- Training plan: 3x weights, 1x cardio per week\\n\\n## Your Role\\n\\nTrack every meal logged (assume eaten unless stated otherwise). Always calculate calories + macros in explicit ledger format. Include food quality notes and blunt behavioral feedback.\\n\\n## Rules\\n\\n1. Always show math: meal breakdown -> running total -> remaining vs goal\\n2. Always reference BMR + daily goal in totals\\n3. Be conservative: overestimate calories when unsure\\n4. Assume normal portions unless specified\\n5. Process one meal at a time unless recap requested\\n6. Never drop baseline stats\\n\\n## When receiving a PHOTO\\n\\n- If it's a **food photo**: identify the food, estimate portion size, calculate macros\\n- If it's a **nutrition label**: read the label values exactly, ask about portion count if unclear\\n- If unclear, ask what it is\\n\\n## When receiving TEXT\\n\\n- Parse the food description and estimate macros\\n- If the user says something like \\\"the usual\\\" or references previous meals, use the conversation context\\n\\n## When receiving VOICE (transcribed text)\\n\\n- Treat the transcription as text input and parse food items from it\\n\\n## Response Format (per meal)\\n\\n```\\n[Meal emoji] [Meal name]\\nCalories: XXX kcal\\nP: XX g | C: XX g | F: XX g\\n[Quality note if relevant]\\n\\n--- Daily Total ---\\nCalories: XXXX / XXXX kcal (BMR: 2216)\\nProtein: XXX / 170 g\\nCarbs: XXX g | Fat: XXX g\\nRemaining: XXX kcal | XXX g protein\\n```\\n\\n## Brief Comment\\n\\nAfter each meal, add ONE line of blunt feedback:\\n- \\\"Ultra-processed - won't keep you full.\\\"\\n- \\\"Behind on protein - fix at dinner.\\\"\\n- \\\"Perfect: high volume, high protein, clean.\\\"\\n- \\\"Lazy delivery habit - hurts the goal.\\\"\\n- \\\"Great fuel for workout.\\\"\\n\\n## Meal Priorities\\n\\n- High protein, high volume\\n- Lean protein + veg + fiber\\n- Low calorie density\\n- Structured & repeatable\\n- Support training & recovery\\n\\n## Important Context\\n\\n- You receive the current day's meal history as context with each message\\n- The `is_training_day` flag tells you whether to use 1900 or 2100 kcal goal\\n- Keep responses concise for Telegram - no walls of text\\n- Use emoji sparingly but effectively for readability\\n\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Build Meal Context'].json.context + '\\n\\nNew meal to log:\\n' + ($node['Telegram Trigger'].json.message.text || $node['Voice to Text'].json.text || 'Unknown meal')) }}\n    }\n  ]\n}",
         "options": {}
       },
-      "id": "claude-text-analysis",
+      "id": "272e2414-4cc6-4fe0-a1db-380764ca33a7",
       "name": "Claude - Analyze Food (Text)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -890,7 +890,7 @@
       "parameters": {
         "jsCode": "// Parse Claude's response and extract macro values\nconst response = $json.content[0].text;\n\nconst calorieMatch = response.match(/Calories:\\s*(\\d+)/i);\nconst proteinMatch = response.match(/P(?:rotein)?:\\s*([\\d.]+)/i);\nconst carbsMatch = response.match(/C(?:arbs)?:\\s*([\\d.]+)/i);\nconst fatMatch = response.match(/F(?:at)?:\\s*([\\d.]+)/i);\nconst fiberMatch = response.match(/Fiber:\\s*([\\d.]+)/i);\nconst sodiumMatch = response.match(/Sodium:\\s*([\\d.]+)/i);\n\nconst lines = response.split('\\n').filter(l => l.trim());\nconst mealName = lines[0].replace(/^[^a-zA-Z]*/, '').trim();\n\nlet foodQuality = 'decent';\nif (response.match(/ultra.processed|junk|lazy|terrible/i)) foodQuality = 'junk';\nelse if (response.match(/processed|mediocre|not great/i)) foodQuality = 'processed';\nelse if (response.match(/clean|perfect|excellent|great fuel/i)) foodQuality = 'clean';\n\nconst commentLines = response.split('\\n').filter(l => l.startsWith('\"') || l.startsWith('\\u201c') || l.includes('\\u2014') || l.includes('-'));\nconst aiComment = commentLines.length > 0 ? commentLines[commentLines.length - 1].replace(/^[\"\\u201c]|[\"\\u201d]$/g, '').trim() : '';\n\n// Infer meal type from current hour\nconst hour = new Date().getHours();\nlet mealType = 'snack';\nif (hour < 11) mealType = 'breakfast';\nelse if (hour < 14) mealType = 'lunch';\nelse if (hour >= 17) mealType = 'dinner';\n\n// Determine input type (voice or text)\nconst inputType = $node['Voice to Text']?.json?.inputType || 'text';\nconst description = $node['Telegram Trigger'].json.message.text || $node['Voice to Text']?.json?.text || '';\n\nreturn [{\n  json: {\n    meal_name: mealName || 'Meal',\n    meal_type: mealType,\n    description: description,\n    calories: parseInt(calorieMatch?.[1]) || 0,\n    protein_g: parseFloat(proteinMatch?.[1]) || 0,\n    carbs_g: parseFloat(carbsMatch?.[1]) || 0,\n    fat_g: parseFloat(fatMatch?.[1]) || 0,\n    fiber_g: fiberMatch ? parseFloat(fiberMatch[1]) : null,\n    sodium_mg: sodiumMatch ? parseFloat(sodiumMatch[1]) : null,\n    food_quality: foodQuality,\n    ai_comment: aiComment,\n    input_type: inputType,\n    claude_response: response\n  }\n}];"
       },
-      "id": "parse-claude-response",
+      "id": "c7bc232f-37ba-4aa8-9ace-2e790a788759",
       "name": "Parse Claude Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -932,7 +932,7 @@
           "mode": "name"
         }
       },
-      "id": "save-to-supabase",
+      "id": "f563b14f-72ad-43f8-b2c6-8878cb49b70d",
       "name": "Save to Supabase",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -955,7 +955,7 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "reply-telegram",
+      "id": "29ba6249-493b-4b5b-ae84-7b8ae5af0879",
       "name": "Reply on Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -1334,5 +1334,8 @@
     {
       "name": "habit-tracker"
     }
-  ]
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
 }

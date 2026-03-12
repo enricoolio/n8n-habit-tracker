@@ -12,7 +12,7 @@
           ]
         }
       },
-      "id": "cron-9pm",
+      "id": "fac2ceeb-8705-4c87-93e8-0565a7b649ed",
       "name": "Every Day at 9pm",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -38,7 +38,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-todays-food",
+      "id": "03a3e412-8e5c-4a72-9778-93f1aca98434",
       "name": "Fetch Today's Food",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -69,7 +69,7 @@
           "mode": "name"
         }
       },
-      "id": "fetch-todays-steps",
+      "id": "45f5779f-2671-4ff0-80de-570002580ff6",
       "name": "Fetch Today's Steps",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -88,7 +88,7 @@
       "parameters": {
         "jsCode": "// Build the evening check-in message\nconst meals = $('Fetch Today\\'s Food').all().map(i => i.json);\nconst stepData = $('Fetch Today\\'s Steps').first()?.json || {};\n\nlet totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;\nfor (const m of meals) {\n  totalCal += m.calories || 0;\n  totalProtein += parseFloat(m.protein_g) || 0;\n  totalCarbs += parseFloat(m.carbs_g) || 0;\n  totalFat += parseFloat(m.fat_g) || 0;\n}\n\nconst today = new Date();\nconst dayOfWeek = today.getDay();\nconst isTrainingDay = [1, 3, 5].includes(dayOfWeek);\nconst goal = isTrainingDay ? 2100 : 1900;\nconst steps = stepData.steps || 0;\n\nconst foodSummary = meals.length > 0\n  ? `You logged ${meals.length} meals today: ${totalCal} kcal, ${Math.round(totalProtein)}g protein`\n  : 'No food logged today!';\n\nconst calStatus = totalCal > 0 && totalCal <= goal + 100 ? '\u2705' : '\u26a0\ufe0f';\nconst proteinStatus = totalProtein >= 140 ? '\u2705' : '\u26a0\ufe0f';\nconst stepStatus = steps >= 10000 ? '\u2705' : `${steps.toLocaleString()} so far`;\n\nconst message = `Hey! Time for your evening check-in.\n\n\ud83d\udcca Today's numbers:\n${calStatus} Calories: ${totalCal} / ${goal} kcal\n${proteinStatus} Protein: ${Math.round(totalProtein)} / 170g\n\ud83d\udc5f Steps: ${stepStatus}\n\nWhich of these did you do today?\n\u2022 \ud83d\ude34 Sleep (8 hours last night?)\n\u2022 \ud83d\udcaa Workout\n\u2022 \ud83d\udcd6 Read/Learn 30 min\n\u2022 \ud83d\udc8a Supplements\n\u2022 \ud83d\udcc5 Calendar & Reflection\n\u2022 \ud83d\ude4f Positivity/Gratefulness\n\nJust reply with what you did. I'll log everything.`;\n\nreturn [{\n  json: {\n    message,\n    totalCal,\n    totalProtein: Math.round(totalProtein * 10) / 10,\n    totalCarbs: Math.round(totalCarbs * 10) / 10,\n    totalFat: Math.round(totalFat * 10) / 10,\n    isTrainingDay,\n    goal,\n    mealCount: meals.length,\n    steps\n  }\n}];"
       },
-      "id": "build-checkin-message",
+      "id": "4eaffd96-0deb-40f9-a46e-6a7ba5bcd26b",
       "name": "Build Check-in Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -103,7 +103,7 @@
         "text": "={{ $json.message }}",
         "additionalFields": {}
       },
-      "id": "send-checkin",
+      "id": "a6b99784-62a8-407d-b375-d803265a7830",
       "name": "Send Check-in",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -146,7 +146,7 @@
           "chat_id"
         ]
       },
-      "id": "set-awaiting-state",
+      "id": "2ef32480-0222-444b-a961-ed5a1f81e9c0",
       "name": "Set Awaiting State",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -232,5 +232,8 @@
     {
       "name": "habit-tracker"
     }
-  ]
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
 }

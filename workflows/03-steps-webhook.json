@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-steps",
+      "id": "2bc8cfe1-fe61-4dfc-a62a-5e9e8d0d4a6b",
       "name": "Steps Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -22,7 +22,7 @@
       "parameters": {
         "jsCode": "const steps = $json.body?.steps || $json.query?.steps || 0;\nconst date = $json.body?.date || new Date().toISOString().split('T')[0];\nconst hit10k = steps >= 10000;\n\nreturn [{ json: { steps: parseInt(steps), date, hit10k } }];"
       },
-      "id": "parse-steps",
+      "id": "1df1a7ca-b8f8-4a7e-b007-223b6c2949c6",
       "name": "Parse Step Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -56,7 +56,7 @@
           "date"
         ]
       },
-      "id": "upsert-steps",
+      "id": "30cb8eaa-b49d-4cd3-aa44-b63ed9fb290e",
       "name": "Save Steps to Supabase",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
@@ -76,7 +76,7 @@
         "respondWith": "json",
         "responseBody": "={ \"status\": \"ok\", \"steps\": {{ $node['Parse Step Data'].json.steps }}, \"hit_10k\": {{ $node['Parse Step Data'].json.hit10k }} }"
       },
-      "id": "respond-ok",
+      "id": "83e7d55a-fac0-4437-9aff-5e5d9141cbb4",
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -128,5 +128,8 @@
     {
       "name": "habit-tracker"
     }
-  ]
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
 }
