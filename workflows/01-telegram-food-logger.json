@@ -3,14 +3,19 @@
   "nodes": [
     {
       "parameters": {
-        "updates": ["message"],
+        "updates": [
+          "message"
+        ],
         "additionalFields": {}
       },
       "id": "telegram-trigger",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [200, 400],
+      "position": [
+        200,
+        400
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -22,8 +27,12 @@
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "conversation_state" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "conversation_state"
+        },
         "filterType": "string",
         "filterString": "=chat_id=eq.{{ $json.message.chat.id }}"
       },
@@ -31,7 +40,10 @@
       "name": "Fetch Conversation State",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [420, 400],
+      "position": [
+        420,
+        400
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -46,12 +58,17 @@
           "values": [
             {
               "conditions": {
-                "options": { "caseSensitive": false },
+                "options": {
+                  "caseSensitive": false
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.state }}",
                     "rightValue": "awaiting_checkin",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ]
               },
@@ -60,12 +77,17 @@
             },
             {
               "conditions": {
-                "options": { "caseSensitive": false },
+                "options": {
+                  "caseSensitive": false
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $node['Telegram Trigger'].json.message.text }}",
                     "rightValue": "/",
-                    "operator": { "type": "string", "operation": "startsWith" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    }
                   }
                 ]
               },
@@ -79,7 +101,10 @@
                   {
                     "leftValue": "={{ $node['Telegram Trigger'].json.message.photo }}",
                     "rightValue": "",
-                    "operator": { "type": "string", "operation": "exists" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
                   }
                 ]
               },
@@ -93,7 +118,10 @@
                   {
                     "leftValue": "={{ $node['Telegram Trigger'].json.message.voice }}",
                     "rightValue": "",
-                    "operator": { "type": "string", "operation": "exists" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
                   }
                 ]
               },
@@ -107,7 +135,10 @@
                   {
                     "leftValue": "={{ $node['Telegram Trigger'].json.message.text }}",
                     "rightValue": "",
-                    "operator": { "type": "string", "operation": "exists" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists"
+                    }
                   }
                 ]
               },
@@ -122,10 +153,12 @@
       "name": "Route by State & Type",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [640, 400],
+      "position": [
+        640,
+        400
+      ],
       "notes": "First checks if awaiting check-in reply, then routes by message type (command/photo/voice/text)"
     },
-
     {
       "parameters": {
         "jsCode": "// Parse the user's reply to determine which habits were completed\nconst msg = $node['Telegram Trigger'].json.message;\nconst reply = (msg.text || '').toLowerCase();\n\n// Smart matching for each habit\nconst habits = {\n  sleep_8h: /sleep|slept|8\\s*h|well.rested|good\\s*night/i.test(reply),\n  eat_healthy: /eat|ate|healthy|clean|on\\s*plan|nutrition/i.test(reply),\n  workout_done: /workout|gym|train|weights|cardio|exercise|lift|run|yoga/i.test(reply),\n  steps_10k: /step|walk|10k|10,?000/i.test(reply),\n  read_30min: /read|book|learn|study|article|podcast/i.test(reply),\n  supplements: /supplement|pill|vitamin|magnesium|omega|creatine/i.test(reply),\n  positivity: /positiv|grateful|thankful|gratefulness|mindful|meditat/i.test(reply),\n  calendar_reflection: /calendar|reflect|plan|journal|review/i.test(reply)\n};\n\n// Retrieve food context stored by the evening cron\nconst stateContext = $node['Fetch Conversation State'].json.context || {};\nconst totalCal = stateContext.totalCal || 0;\nconst totalProtein = stateContext.totalProtein || 0;\nconst totalCarbs = stateContext.totalCarbs || 0;\nconst totalFat = stateContext.totalFat || 0;\nconst mealCount = stateContext.mealCount || 0;\nconst isTrainingDay = stateContext.isTrainingDay || false;\nconst goal = stateContext.goal || 1900;\n\n// If food was logged today, auto-check eat_healthy based on calorie adherence\nif (totalCal > 0 && totalCal <= goal + 100 && totalProtein >= 140) {\n  habits.eat_healthy = true;\n}\n\n// Count completed habits\nconst completed = Object.values(habits).filter(Boolean).length;\nconst total = Object.keys(habits).length;\nconst percentage = Math.round((completed / total) * 100);\n\nreturn [{ json: { habits, completed, total, percentage, rawReply: reply, totalCal, totalProtein, totalCarbs, totalFat, mealCount, isTrainingDay, goal } }];"
@@ -134,7 +167,10 @@
       "name": "Parse Check-in Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 100],
+      "position": [
+        880,
+        100
+      ],
       "notes": "Parses natural language reply to extract which habits were completed"
     },
     {
@@ -146,8 +182,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Notion-Version", "value": "2022-06-28" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -158,7 +200,10 @@
       "name": "Find Today's Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, 100],
+      "position": [
+        1100,
+        100
+      ],
       "notes": "Queries Notion database to find today's habit tracking page"
     },
     {
@@ -169,7 +214,10 @@
       "name": "Check Notion Page Exists",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 100]
+      "position": [
+        1320,
+        100
+      ]
     },
     {
       "parameters": {
@@ -182,7 +230,10 @@
                   {
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "create",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ]
               },
@@ -196,7 +247,10 @@
                   {
                     "leftValue": "={{ $json.action }}",
                     "rightValue": "update",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ]
               },
@@ -211,7 +265,10 @@
       "name": "Create or Update?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [1540, 100]
+      "position": [
+        1540,
+        100
+      ]
     },
     {
       "parameters": {
@@ -222,8 +279,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Notion-Version", "value": "2022-06-28" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -234,7 +297,10 @@
       "name": "Create Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, 0],
+      "position": [
+        1760,
+        0
+      ],
       "notes": "Creates today's Notion page with habit checkboxes"
     },
     {
@@ -246,8 +312,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Notion-Version", "value": "2022-06-28" },
-            { "name": "Content-Type", "value": "application/json" }
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -258,14 +330,21 @@
       "name": "Update Notion Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, 200],
+      "position": [
+        1760,
+        200
+      ],
       "notes": "Updates existing Notion page with habit checkboxes"
     },
     {
       "parameters": {
         "operation": "upsert",
-        "schema": { "value": "public" },
-        "table": { "value": "daily_summaries" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "daily_summaries"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -293,7 +372,10 @@
       "name": "Save Daily Summary",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1980, 100],
+      "position": [
+        1980,
+        100
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -304,8 +386,12 @@
     {
       "parameters": {
         "operation": "upsert",
-        "schema": { "value": "public" },
-        "table": { "value": "conversation_state" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "conversation_state"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -319,7 +405,10 @@
       "name": "Reset State to Idle",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2200, 100],
+      "position": [
+        2200,
+        100
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -337,7 +426,10 @@
       "name": "Send Check-in Summary",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2420, 100],
+      "position": [
+        2420,
+        100
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -345,7 +437,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "jsCode": "// Handle bot commands\nconst text = ($node['Telegram Trigger'].json.message.text || '').trim();\nconst cmd = text.split(' ')[0].toLowerCase();\n\nlet reply = '';\n\nswitch (cmd) {\n  case '/help':\n    reply = `Available commands:\n/help - Show this message\n/totals - Today's food totals\n/training - Toggle training day\n/recap - Quick weekly summary\n\nOr just send me:\n- Text describing what you ate\n- A photo of your food\n- A voice note about your meal`;\n    break;\n  case '/totals':\n    reply = 'FETCHING_TOTALS';\n    break;\n  case '/training':\n    reply = 'TOGGLE_TRAINING';\n    break;\n  case '/recap':\n    reply = 'WEEKLY_RECAP';\n    break;\n  default:\n    reply = `Unknown command: ${cmd}\\nTry /help for available commands.`;\n}\n\nreturn [{ json: { reply, cmd } }];"
@@ -354,20 +445,28 @@
       "name": "Handle Command",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 300],
+      "position": [
+        880,
+        300
+      ],
       "notes": "Processes bot commands like /help, /totals, /training"
     },
     {
       "parameters": {
         "chatId": "={{ $node['Telegram Trigger'].json.message.chat.id }}",
         "text": "={{ $json.reply }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
       "id": "reply-command",
       "name": "Reply to Command",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1100, 300],
+      "position": [
+        1100,
+        300
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -375,7 +474,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "method": "POST",
@@ -394,18 +492,30 @@
       "name": "Get Photo File",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [880, 500]
+      "position": [
+        880,
+        500
+      ]
     },
     {
       "parameters": {
         "url": "=https://api.telegram.org/file/bot{{ $credentials.telegramApi.accessToken }}/{{ $json.result.file_path }}",
-        "options": { "response": { "response": { "responseFormat": "file" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
       },
       "id": "download-photo",
       "name": "Download Photo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, 500]
+      "position": [
+        1100,
+        500
+      ]
     },
     {
       "parameters": {
@@ -415,24 +525,35 @@
       "name": "Encode Photo Base64",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 500],
+      "position": [
+        1320,
+        500
+      ],
       "notes": "Converts downloaded photo to base64 for Claude vision API"
     },
-
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "food_logs" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "food_logs"
+        },
         "filterType": "string",
         "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
-        "options": { "orderByField": "logged_at" }
+        "options": {
+          "orderByField": "logged_at"
+        }
       },
       "id": "fetch-todays-meals-photo",
       "name": "Fetch Meals (Photo)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1540, 500],
+      "position": [
+        1540,
+        500
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -448,7 +569,10 @@
       "name": "Build Context (Photo)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 500]
+      "position": [
+        1760,
+        500
+      ]
     },
     {
       "parameters": {
@@ -459,19 +583,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($node['Read System Prompt'].json.data) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"image\",\n          \"source\": {\n            \"type\": \"base64\",\n            \"media_type\": {{ JSON.stringify($node['Encode Photo Base64'].json.mediaType) }},\n            \"data\": {{ JSON.stringify($node['Encode Photo Base64'].json.base64) }}\n          }\n        },\n        {\n          \"type\": \"text\",\n          \"text\": {{ JSON.stringify($node['Build Context (Photo)'].json.context + '\\n\\nAnalyze this food photo. ' + $node['Encode Photo Base64'].json.caption) }}\n        }\n      ]\n    }\n  ]\n}"
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\\n\\n## Baseline & Goals (NEVER DROP THESE)\\n\\n- Current weight: ~84 kg | Target: ~80 kg\\n- BMR: 2216 kcal\\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\\n- Protein target: 170 g/day\\n- Training plan: 3x weights, 1x cardio per week\\n\\n## Your Role\\n\\nTrack every meal logged (assume eaten unless stated otherwise). Always calculate calories + macros in explicit ledger format. Include food quality notes and blunt behavioral feedback.\\n\\n## Rules\\n\\n1. Always show math: meal breakdown -> running total -> remaining vs goal\\n2. Always reference BMR + daily goal in totals\\n3. Be conservative: overestimate calories when unsure\\n4. Assume normal portions unless specified\\n5. Process one meal at a time unless recap requested\\n6. Never drop baseline stats\\n\\n## When receiving a PHOTO\\n\\n- If it's a **food photo**: identify the food, estimate portion size, calculate macros\\n- If it's a **nutrition label**: read the label values exactly, ask about portion count if unclear\\n- If unclear, ask what it is\\n\\n## When receiving TEXT\\n\\n- Parse the food description and estimate macros\\n- If the user says something like \\\"the usual\\\" or references previous meals, use the conversation context\\n\\n## When receiving VOICE (transcribed text)\\n\\n- Treat the transcription as text input and parse food items from it\\n\\n## Response Format (per meal)\\n\\n```\\n[Meal emoji] [Meal name]\\nCalories: XXX kcal\\nP: XX g | C: XX g | F: XX g\\n[Quality note if relevant]\\n\\n--- Daily Total ---\\nCalories: XXXX / XXXX kcal (BMR: 2216)\\nProtein: XXX / 170 g\\nCarbs: XXX g | Fat: XXX g\\nRemaining: XXX kcal | XXX g protein\\n```\\n\\n## Brief Comment\\n\\nAfter each meal, add ONE line of blunt feedback:\\n- \\\"Ultra-processed - won't keep you full.\\\"\\n- \\\"Behind on protein - fix at dinner.\\\"\\n- \\\"Perfect: high volume, high protein, clean.\\\"\\n- \\\"Lazy delivery habit - hurts the goal.\\\"\\n- \\\"Great fuel for workout.\\\"\\n\\n## Meal Priorities\\n\\n- High protein, high volume\\n- Lean protein + veg + fiber\\n- Low calorie density\\n- Structured & repeatable\\n- Support training & recovery\\n\\n## Important Context\\n\\n- You receive the current day's meal history as context with each message\\n- The `is_training_day` flag tells you whether to use 1900 or 2100 kcal goal\\n- Keep responses concise for Telegram - no walls of text\\n- Use emoji sparingly but effectively for readability\\n\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"image\",\n          \"source\": {\n            \"type\": \"base64\",\n            \"media_type\": {{ JSON.stringify($node['Encode Photo Base64'].json.mediaType) }},\n            \"data\": {{ JSON.stringify($node['Encode Photo Base64'].json.base64) }}\n          }\n        },\n        {\n          \"type\": \"text\",\n          \"text\": {{ JSON.stringify($node['Build Context (Photo)'].json.context + '\\n\\nAnalyze this food photo. ' + $node['Encode Photo Base64'].json.caption) }}\n        }\n      ]\n    }\n  ]\n}"
       },
       "id": "claude-photo-analysis",
       "name": "Claude - Analyze Food (Photo)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1980, 500],
+      "position": [
+        1980,
+        500
+      ],
       "notes": "Sends photo to Claude vision API for food identification and macro estimation"
     },
     {
@@ -482,13 +615,20 @@
       "name": "Parse Photo Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 500]
+      "position": [
+        2200,
+        500
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "food_logs" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "food_logs"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -514,7 +654,10 @@
       "name": "Save Photo Meal",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2420, 500],
+      "position": [
+        2420,
+        500
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -526,13 +669,18 @@
       "parameters": {
         "chatId": "={{ $node['Telegram Trigger'].json.message.chat.id }}",
         "text": "={{ $node['Parse Photo Response'].json.claude_response }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
       "id": "reply-photo",
       "name": "Reply (Photo)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2640, 500],
+      "position": [
+        2640,
+        500
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -540,7 +688,6 @@
         }
       }
     },
-
     {
       "parameters": {
         "method": "POST",
@@ -559,18 +706,30 @@
       "name": "Get Voice File",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [880, 700]
+      "position": [
+        880,
+        700
+      ]
     },
     {
       "parameters": {
         "url": "=https://api.telegram.org/file/bot{{ $credentials.telegramApi.accessToken }}/{{ $json.result.file_path }}",
-        "options": { "response": { "response": { "responseFormat": "file" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
       },
       "id": "download-voice",
       "name": "Download Voice",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, 700]
+      "position": [
+        1100,
+        700
+      ]
     },
     {
       "parameters": {
@@ -586,8 +745,15 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "name": "model", "value": "whisper-1" },
-            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "data" }
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
           ]
         }
       },
@@ -595,7 +761,10 @@
       "name": "Transcribe (Whisper)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 700],
+      "position": [
+        1320,
+        700
+      ],
       "notes": "Transcribes voice message using OpenAI Whisper API. Requires OPENAI_API_KEY in HTTP Header Auth credential."
     },
     {
@@ -606,23 +775,34 @@
       "name": "Voice to Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 700]
+      "position": [
+        1540,
+        700
+      ]
     },
-
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "food_logs" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "food_logs"
+        },
         "filterType": "string",
         "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
-        "options": { "orderByField": "logged_at" }
+        "options": {
+          "orderByField": "logged_at"
+        }
       },
       "id": "fetch-todays-meals-text",
       "name": "Fetch Meals (Text)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [880, 900],
+      "position": [
+        880,
+        900
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -638,18 +818,10 @@
       "name": "Build Meal Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 900]
-    },
-    {
-      "parameters": {
-        "jsCode": "const systemPrompt = `You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\n\nBaseline & Goals (NEVER DROP):\n- Current weight: ~84 kg | Target: ~80 kg\n- BMR: 2216 kcal\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\n- Protein target: 170 g/day\n- Training plan: 3x weights, 1x cardio per week\n\nRules:\n1. Always show math: meal breakdown -> running total -> remaining vs goal\n2. Be conservative: overestimate calories when unsure\n3. Assume normal portions unless specified\n4. Never drop baseline stats\n\nWhen receiving a PHOTO:\n- Identify the food, estimate portion size, calculate macros\n- If it's a nutrition label, read label values exactly\n- If unclear, ask what it is\n\nResponse Format (per meal):\nMeal name\nCalories: XXX kcal\nP: XX g | C: XX g | F: XX g\n[Quality note if relevant]\n\n--- Daily Total ---\nCalories: XXXX / XXXX kcal (BMR: 2216)\nProtein: XXX / 170 g\nCarbs: XXX g | Fat: XXX g\nRemaining: XXX kcal | XXX g protein\n\nEnd with ONE line of blunt feedback.\nKeep responses concise for Telegram.`;\n\nreturn [{ json: { data: systemPrompt } }];"
-      },
-      "id": "read-system-prompt",
-      "name": "Read System Prompt",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1100, 1100],
-      "notes": "Embeds the system prompt for Claude. Edit this to customize the coaching style."
+      "position": [
+        1100,
+        900
+      ]
     },
     {
       "parameters": {
@@ -660,20 +832,29 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($node['Read System Prompt'].json.data) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Build Meal Context'].json.context + '\\n\\nNew meal to log:\\n' + ($node['Telegram Trigger'].json.message.text || $node['Voice to Text'].json.text || 'Unknown meal')) }}\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\\n\\n## Baseline & Goals (NEVER DROP THESE)\\n\\n- Current weight: ~84 kg | Target: ~80 kg\\n- BMR: 2216 kcal\\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\\n- Protein target: 170 g/day\\n- Training plan: 3x weights, 1x cardio per week\\n\\n## Your Role\\n\\nTrack every meal logged (assume eaten unless stated otherwise). Always calculate calories + macros in explicit ledger format. Include food quality notes and blunt behavioral feedback.\\n\\n## Rules\\n\\n1. Always show math: meal breakdown -> running total -> remaining vs goal\\n2. Always reference BMR + daily goal in totals\\n3. Be conservative: overestimate calories when unsure\\n4. Assume normal portions unless specified\\n5. Process one meal at a time unless recap requested\\n6. Never drop baseline stats\\n\\n## When receiving a PHOTO\\n\\n- If it's a **food photo**: identify the food, estimate portion size, calculate macros\\n- If it's a **nutrition label**: read the label values exactly, ask about portion count if unclear\\n- If unclear, ask what it is\\n\\n## When receiving TEXT\\n\\n- Parse the food description and estimate macros\\n- If the user says something like \\\"the usual\\\" or references previous meals, use the conversation context\\n\\n## When receiving VOICE (transcribed text)\\n\\n- Treat the transcription as text input and parse food items from it\\n\\n## Response Format (per meal)\\n\\n```\\n[Meal emoji] [Meal name]\\nCalories: XXX kcal\\nP: XX g | C: XX g | F: XX g\\n[Quality note if relevant]\\n\\n--- Daily Total ---\\nCalories: XXXX / XXXX kcal (BMR: 2216)\\nProtein: XXX / 170 g\\nCarbs: XXX g | Fat: XXX g\\nRemaining: XXX kcal | XXX g protein\\n```\\n\\n## Brief Comment\\n\\nAfter each meal, add ONE line of blunt feedback:\\n- \\\"Ultra-processed - won't keep you full.\\\"\\n- \\\"Behind on protein - fix at dinner.\\\"\\n- \\\"Perfect: high volume, high protein, clean.\\\"\\n- \\\"Lazy delivery habit - hurts the goal.\\\"\\n- \\\"Great fuel for workout.\\\"\\n\\n## Meal Priorities\\n\\n- High protein, high volume\\n- Lean protein + veg + fiber\\n- Low calorie density\\n- Structured & repeatable\\n- Support training & recovery\\n\\n## Important Context\\n\\n- You receive the current day's meal history as context with each message\\n- The `is_training_day` flag tells you whether to use 1900 or 2100 kcal goal\\n- Keep responses concise for Telegram - no walls of text\\n- Use emoji sparingly but effectively for readability\\n\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Build Meal Context'].json.context + '\\n\\nNew meal to log:\\n' + ($node['Telegram Trigger'].json.message.text || $node['Voice to Text'].json.text || 'Unknown meal')) }}\n    }\n  ]\n}",
         "options": {}
       },
       "id": "claude-text-analysis",
       "name": "Claude - Analyze Food (Text)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 900]
+      "position": [
+        1320,
+        900
+      ]
     },
     {
       "parameters": {
@@ -683,13 +864,20 @@
       "name": "Parse Claude Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 900]
+      "position": [
+        1540,
+        900
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "food_logs" },
+        "schema": {
+          "value": "public"
+        },
+        "table": {
+          "value": "food_logs"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -714,7 +902,10 @@
       "name": "Save to Supabase",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1760, 900],
+      "position": [
+        1760,
+        900
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -726,13 +917,18 @@
       "parameters": {
         "chatId": "={{ $node['Telegram Trigger'].json.message.chat.id }}",
         "text": "={{ $node['Parse Claude Response'].json.claude_response }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
       "id": "reply-telegram",
       "name": "Reply on Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1980, 900],
+      "position": [
+        1980,
+        900
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -743,109 +939,366 @@
   ],
   "connections": {
     "Telegram Trigger": {
-      "main": [[{ "node": "Fetch Conversation State", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Conversation State": {
-      "main": [[{ "node": "Route by State & Type", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Route by State & Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Route by State & Type": {
       "main": [
-        [{ "node": "Parse Check-in Reply", "type": "main", "index": 0 }],
-        [{ "node": "Handle Command", "type": "main", "index": 0 }],
-        [{ "node": "Get Photo File", "type": "main", "index": 0 }],
-        [{ "node": "Get Voice File", "type": "main", "index": 0 }],
-        [{ "node": "Fetch Meals (Text)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse Check-in Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Photo File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Voice File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Meals (Text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-
     "Parse Check-in Reply": {
-      "main": [[{ "node": "Find Today's Notion Page", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Find Today's Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Find Today's Notion Page": {
-      "main": [[{ "node": "Check Notion Page Exists", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check Notion Page Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Notion Page Exists": {
-      "main": [[{ "node": "Create or Update?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Create or Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Create or Update?": {
       "main": [
-        [{ "node": "Create Notion Page", "type": "main", "index": 0 }],
-        [{ "node": "Update Notion Page", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Create Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Create Notion Page": {
-      "main": [[{ "node": "Save Daily Summary", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Notion Page": {
-      "main": [[{ "node": "Save Daily Summary", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Daily Summary": {
-      "main": [[{ "node": "Reset State to Idle", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Reset State to Idle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Reset State to Idle": {
-      "main": [[{ "node": "Send Check-in Summary", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Check-in Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Handle Command": {
-      "main": [[{ "node": "Reply to Command", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Reply to Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Get Photo File": {
-      "main": [[{ "node": "Download Photo", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Download Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Download Photo": {
-      "main": [[{ "node": "Encode Photo Base64", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Encode Photo Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Encode Photo Base64": {
-      "main": [[{ "node": "Fetch Meals (Photo)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch Meals (Photo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Meals (Photo)": {
-      "main": [[{ "node": "Build Context (Photo)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Context (Photo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Context (Photo)": {
-      "main": [[{ "node": "Claude - Analyze Food (Photo)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude - Analyze Food (Photo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude - Analyze Food (Photo)": {
-      "main": [[{ "node": "Parse Photo Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Photo Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Photo Response": {
-      "main": [[{ "node": "Save Photo Meal", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Photo Meal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Photo Meal": {
-      "main": [[{ "node": "Reply (Photo)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Reply (Photo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Get Voice File": {
-      "main": [[{ "node": "Download Voice", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Download Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Download Voice": {
-      "main": [[{ "node": "Transcribe (Whisper)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Transcribe (Whisper)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Transcribe (Whisper)": {
-      "main": [[{ "node": "Voice to Text", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Voice to Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Voice to Text": {
-      "main": [[{ "node": "Fetch Meals (Text)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch Meals (Text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-
     "Fetch Meals (Text)": {
-      "main": [[{ "node": "Build Meal Context", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Meal Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Meal Context": {
-      "main": [[{ "node": "Claude - Analyze Food (Text)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude - Analyze Food (Text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude - Analyze Food (Text)": {
-      "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Claude Response": {
-      "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save to Supabase": {
-      "main": [[{ "node": "Reply on Telegram", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Reply on Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [{ "name": "habit-tracker" }]
+  "tags": [
+    {
+      "name": "habit-tracker"
+    }
+  ]
 }
