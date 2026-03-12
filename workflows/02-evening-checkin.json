@@ -71,7 +71,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "chatId": "6023241557",
         "text": "={{ $json.message }}",
         "additionalFields": {}
       },
@@ -96,7 +96,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "chat_id": "={{ $env.TELEGRAM_CHAT_ID }}",
+            "chat_id": "6023241557",
             "state": "awaiting_checkin",
             "context": "={{ JSON.stringify({ totalCal: $json.totalCal, totalProtein: $json.totalProtein, totalCarbs: $json.totalCarbs, totalFat: $json.totalFat, isTrainingDay: $json.isTrainingDay, goal: $json.goal, mealCount: $json.mealCount, steps: $json.steps }) }}",
             "updated_at": "={{ $now.toISO() }}"

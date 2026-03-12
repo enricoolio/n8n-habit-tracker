@@ -140,7 +140,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "chatId": "6023241557",
         "text": "=📊 WEEKLY RECAP\n\n{{ $node['Claude - Weekly Recap'].json.content[0].text }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
