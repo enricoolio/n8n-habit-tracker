@@ -1,0 +1,911 @@
+{
+  "name": "Calorie & Habit Tracker",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true,
+          "imageSize": "large"
+        }
+      },
+      "id": "08685dde-3464-4247-8e08-d6fc5015df82",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        592
+      ],
+      "webhookId": "3b210cc5-e456-4069-969a-dd2eb638bc4c",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "currentDate",
+              "value": "={{ $now.toFormat(\"yyyy-MM-dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "chatId",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "sessionKey",
+              "value": "={{ $json.message.chat.id }}_{{ $now.toFormat(\"yyyy-MM-dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "messageText",
+              "value": "={{ $json.message?.text ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "hasPhoto",
+              "value": "={{ $json.message?.photo ? true : false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "6",
+              "name": "hasVoice",
+              "value": "={{ $json.message?.voice ? true : false }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "fbfdda49-40fc-4325-964d-caf42461498a",
+      "name": "Get Current Date",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "X8HkWNS7o9GyNVw3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date",
+              "keyValue": "={{ $json.currentDate }}"
+            },
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $json.chatId }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "5aeacbf7-5806-445a-a3dc-1a420fe520e8",
+      "name": "Fetch Today Food Log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        448
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = $input.first().json;\nconst preparedData = $(\"Prepare AI Input\").first().json;\n\nlet response = \"\";\nif (agentOutput.output) {\n  response = agentOutput.output;\n} else if (typeof agentOutput === \"string\") {\n  response = agentOutput;\n} else {\n  response = JSON.stringify(agentOutput);\n}\n\nconst previousLog = preparedData.meals_log || \"\";\nconst previousCalories = preparedData.total_calories || 0;\nconst previousProtein = preparedData.total_protein || 0;\nconst previousCarbs = preparedData.total_carbs || 0;\nconst previousFat = preparedData.total_fat || 0;\n\nif (preparedData.isRestart || response.toLowerCase().includes(\"day restarted\")) {\n  return [{\n    json: {\n      date: preparedData.currentDate,\n      chat_id: preparedData.chatId,\n      total_calories: 0,\n      total_protein: 0,\n      total_carbs: 0,\n      total_fat: 0,\n      meals_log: \"\",\n      ai_response: response\n    }\n  }];\n}\n\nconst mealMatch = response.match(/Meal: (.+)/);\nconst caloriesMatch = response.match(/Calories: (\\d+) kcal/);\nconst proteinMatch = response.match(/Protein: (\\d+) g/);\nconst carbsMatch = response.match(/Carbs: (\\d+) g/);\nconst fatMatch = response.match(/Fat: (\\d+) g/);\n\nconst totalCaloriesMatch = response.match(/Daily Total:[\\s\\S]*?Calories: (\\d+) kcal/);\nconst totalProteinMatch = response.match(/Daily Total:[\\s\\S]*?Protein: (\\d+) g/);\nconst totalCarbsMatch = response.match(/Daily Total:[\\s\\S]*?Carbs: (\\d+) g/);\nconst totalFatMatch = response.match(/Daily Total:[\\s\\S]*?Fat: (\\d+) g/);\n\nconst mealName = mealMatch ? mealMatch[1] : null;\nconst mealCalories = caloriesMatch ? parseInt(caloriesMatch[1]) : 0;\nconst mealProtein = proteinMatch ? parseInt(proteinMatch[1]) : 0;\nconst mealCarbs = carbsMatch ? parseInt(carbsMatch[1]) : 0;\nconst mealFat = fatMatch ? parseInt(fatMatch[1]) : 0;\n\nlet updatedLog = previousLog;\nif (mealName && mealCalories > 0) {\n  const newMealEntry = `${mealName} (${mealCalories} kcal, ${mealProtein}g protein)`;\n  updatedLog = previousLog ? `${previousLog}; ${newMealEntry}` : newMealEntry;\n}\n\nreturn [{\n  json: {\n    date: preparedData.currentDate,\n    chat_id: preparedData.chatId,\n    total_calories: totalCaloriesMatch ? parseInt(totalCaloriesMatch[1]) : previousCalories + mealCalories,\n    total_protein: totalProteinMatch ? parseInt(totalProteinMatch[1]) : previousProtein + mealProtein,\n    total_carbs: totalCarbsMatch ? parseInt(totalCarbsMatch[1]) : previousCarbs + mealCarbs,\n    total_fat: totalFatMatch ? parseInt(totalFatMatch[1]) : previousFat + mealFat,\n    meals_log: updatedLog,\n    ai_response: response\n  }\n}];"
+      },
+      "id": "f3cf9f30-1bfe-4c3b-bdab-adb6d2376f09",
+      "name": "Extract Macros from Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "X8HkWNS7o9GyNVw3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date",
+              "keyValue": "={{ $json.date }}"
+            },
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $json.chat_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "total_calories": "={{ $json.total_calories }}",
+            "total_protein": "={{ $json.total_protein }}",
+            "total_carbs": "={{ $json.total_carbs }}",
+            "total_fat": "={{ $json.total_fat }}",
+            "meals_log": "={{ $json.meals_log }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "65916c69-78cd-4400-b67d-2dcca06fa1fe",
+      "name": "Save Food Log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1936,
+        448
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $(\"Get Current Date\").item.json.chatId }}",
+        "text": "={{ $(\"Extract Macros from Response\").item.json.ai_response }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "6f8fb28e-c792-4bc1-9e77-321c45e69371",
+      "name": "Send Response to User",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2160,
+        448
+      ],
+      "webhookId": "83b28ae3-cca1-4068-9592-0ecdc0f44732",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21
+            }
+          ]
+        }
+      },
+      "id": "61eea31e-dd6b-4686-a045-809dd57013b9",
+      "name": "Evening Check-in (9 PM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "chat_id",
+              "value": "6023241557",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "currentDate",
+              "value": "={{ $now.toFormat(\"yyyy-MM-dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "checkInMessage",
+              "value": "🌙 Evening Check-in\n\nTime to review your day! Please answer yes/no for each:\n\n✅ Workout - Did you complete your workout today?\n✅ 10,000 Steps - Did you hit your step goal?\n✅ Reading/Learning - At least 30 minutes?\n✅ Supplements - Did you take them?\n✅ Mindfulness - Gratefulness exercise done?\n✅ Sleep Quality - How did you sleep last night?\n\nReply with your answers (e.g., \"Workout yes, steps no, reading yes, supplements yes, mindfulness yes, sleep good\")",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "babebf9f-969e-4720-b285-8eb4846077d1",
+      "name": "Prepare Evening Check-in",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.checkInMessage }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "e77c7039-144e-4edf-9466-8891702a46d6",
+      "name": "Send Evening Check-in",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1136,
+        960
+      ],
+      "webhookId": "8488614e-59fe-4e1e-a8a8-76a0438096d7",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageData = $(\"Get Current Date\").first().json;\nconst logData = $(\"Fetch Today Food Log\").all();\nconst message = messageData.message;\n\nlet result = {\n  currentDate: messageData.currentDate,\n  chatId: messageData.chatId,\n  sessionKey: messageData.sessionKey,\n  hasPhoto: messageData.hasPhoto,\n  hasVoice: messageData.hasVoice,\n  hasText: !!messageData.messageText,\n  messageText: messageData.messageText || \"\",\n  fileId: null,\n  total_calories: 0,\n  total_protein: 0,\n  total_carbs: 0,\n  total_fat: 0,\n  meals_log: \"\",\n  userInput: \"\",\n  isRestart: false,\n  isWeeklySummary: false\n};\n\nif (message.photo && message.photo.length > 0) {\n  result.fileId = message.photo[message.photo.length - 1].file_id;\n} else if (message.voice) {\n  result.fileId = message.voice.file_id;\n}\n\nconst msgLower = (messageData.messageText || \"\").toLowerCase();\nif (msgLower.includes(\"restart\") && (msgLower.includes(\"day\") || msgLower.includes(\"today\"))) {\n  result.isRestart = true;\n  result.userInput = \"restart the day\";\n  return [{ json: result }];\n}\n\nif (msgLower.includes(\"week\") && (msgLower.includes(\"summary\") || msgLower.includes(\"show\"))) {\n  result.isWeeklySummary = true;\n  result.userInput = \"show weekly summary\";\n  return [{ json: result }];\n}\n\nif (logData.length > 0 && logData[0].json.date) {\n  const log = logData[0].json;\n  result.total_calories = log.total_calories || 0;\n  result.total_protein = log.total_protein || 0;\n  result.total_carbs = log.total_carbs || 0;\n  result.total_fat = log.total_fat || 0;\n  result.meals_log = log.meals_log || \"\";\n}\n\nif (result.hasPhoto && result.messageText) {\n  result.userInput = result.messageText + \" (see attached image)\";\n} else if (result.hasPhoto) {\n  result.userInput = \"(see attached image)\";\n} else if (result.hasVoice) {\n  result.userInput = \"(voice note - will be transcribed)\";\n} else {\n  result.userInput = result.messageText;\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "5e09c21e-864a-467c-9736-3716b1e39b37",
+      "name": "Prepare AI Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userInput }}",
+        "options": {
+          "systemMessage": "=You are Coach Krupt, a direct and blunt nutrition coach helping track food intake and daily habits.\n\n🎯 USER GOALS:\nCurrent weight: ~84 kg → Target: ~80 kg\nBMR: 2216 kcal\nDaily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\nProtein target: 170 g/day\n\nCURRENT TRACKING DATA:\n{{ $(\"Prepare AI Input\").item.json.meals_log ? \"Previous meals today:\\n\" + $(\"Prepare AI Input\").item.json.meals_log : \"No meals logged yet today\" }}\n{{ $(\"Prepare AI Input\").item.json.total_calories ? \"Running Total:\\nCalories: \" + $(\"Prepare AI Input\").item.json.total_calories + \" kcal\\nProtein: \" + $(\"Prepare AI Input\").item.json.total_protein + \"g\\nCarbs: \" + $(\"Prepare AI Input\").item.json.total_carbs + \"g\\nFat: \" + $(\"Prepare AI Input\").item.json.total_fat + \"g\" : \"Starting fresh for today\" }}\n\nYOUR ROLE:\n1. Analyze food descriptions (text, images, voice notes) and estimate calories and macros conservatively (overestimate if unsure)\n2. Maintain a conversational tone - the user can ask questions, discuss meals, or request clarifications\n3. Track cumulative totals throughout the day\n4. Provide feedback on food choices, protein intake, and progress toward goals\n5. Handle commands like \"restart the day\" to reset tracking to zero\n6. Provide weekly summaries when asked (\"show me this week\" or \"weekly summary\")\n7. Give motivational feedback on progress toward 80kg goal\n8. When analyzing images, describe what you see and provide detailed macro estimates\n9. For voice notes, transcribe and analyze the food description\n\nRESPONSE FORMAT for food logging:\n📊 Meal: [Name]\nCalories: XXX kcal\nProtein: XX g | Carbs: XX g | Fat: XX g\n\nDaily Total:\nCalories: XXXX kcal / Goal: 1900 kcal (BMR: 2216 kcal)\nProtein: XXX g / Goal: 170 g\nCarbs: XXX g | Fat: XXX g\n\nRemaining: Calories: XXX kcal | Protein: XXX g\n\n💬 [Brief comment on food quality, protein status, or behavior]\n\nFor restart command, respond:\n🔄 Day restarted! All tracking reset to zero. Start logging your meals.\n\nFor weekly summary, provide:\n📈 Weekly Summary\n[Analyze trends, average calories, protein intake, adherence to goals]\n\nBe blunt and direct. Call out poor choices. Praise high-protein, high-volume meals. You can have back-and-forth conversations with the user.",
+          "maxIterations": 10,
+          "returnIntermediateSteps": false,
+          "passthroughBinaryImages": true,
+          "enableStreaming": false
+        }
+      },
+      "id": "10fffb23-d6a2-4a2d-a9e3-0dae435b20f5",
+      "name": "Food Tracking Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1360,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtMinute": 1
+            }
+          ]
+        }
+      },
+      "id": "7e41d805-28fc-47a4-bb26-c1807d153015",
+      "name": "Daily Session Start (00:01)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "chat_id",
+              "value": "6023241557",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "currentDate",
+              "value": "={{ $now.toFormat(\"yyyy-MM-dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "sessionKey",
+              "value": "=6023241557_{{ $now.toFormat(\"yyyy-MM-dd\") }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "welcomeMessage",
+              "value": "🌅 Good morning! New day, new tracking session started.\n\nSend me your meals (text, photos, or voice notes) throughout the day and I'll track your macros.\n\nDaily Goals:\n• Calories: 1900-2100 kcal\n• Protein: 170g\n• Target weight: 80kg (from ~84kg)\n\nCommands:\n• \"restart the day\" - reset today's tracking\n• \"weekly summary\" - see this week's progress\n\nLet's make today count! 💪",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c3b9e69-87b2-4ef8-9a6a-f7a9e3bd2560",
+      "name": "Initialize Daily Session",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.welcomeMessage }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "96fe9c6a-b735-419d-b820-e753e3a13b9e",
+      "name": "Send Daily Welcome",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        112
+      ],
+      "webhookId": "04e64e53-65bd-4b5e-89f1-26549498cd18",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929"
+        },
+        "options": {
+          "maxTokensToSample": 4096,
+          "temperature": 0.7
+        }
+      },
+      "id": "9e4146de-e969-41e2-af5e-be007d84712b",
+      "name": "Anthropic Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1376,
+        560
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "3KM9gAODrvTxFBpl",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionKey }}",
+        "contextWindowLength": 100
+      },
+      "id": "36453906-1ca5-43aa-a7db-385ba2a8cc78",
+      "name": "Daily Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.messageText }}",
+              "rightValue": "workout|steps|reading|supplements|mindfulness|sleep",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "42b25e83-36b6-4af2-a97d-3eb2acabb46a",
+      "name": "Detect Habit Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        688,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst text = (data.messageText || \"\").toLowerCase();\n\nfunction parseYesNo(keyword) {\n  const pattern = new RegExp(keyword + \"[:\\\\s]*(yes|no|good|bad|ok|great|poor)\", \"i\");\n  const match = text.match(pattern);\n  if (!match) return null;\n  const value = match[1].toLowerCase();\n  if ([\"yes\", \"good\", \"ok\", \"great\"].includes(value)) return \"yes\";\n  if ([\"no\", \"bad\", \"poor\"].includes(value)) return \"no\";\n  return value;\n}\n\nreturn [{\n  json: {\n    date: data.currentDate,\n    chat_id: data.chatId,\n    workout: parseYesNo(\"workout\"),\n    steps_10k: parseYesNo(\"steps\"),\n    reading: parseYesNo(\"reading\"),\n    supplements: parseYesNo(\"supplements\"),\n    mindfulness: parseYesNo(\"mindfulness\"),\n    sleep_quality: parseYesNo(\"sleep\")\n  }\n}];"
+      },
+      "id": "1025dac7-79be-4efd-ad3a-23a2d60a0a81",
+      "name": "Parse Habit Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "X8HkWNS7o9GyNVw3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date",
+              "keyValue": "={{ $json.date }}"
+            },
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $json.chat_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "workout": "={{ $json.workout }}",
+            "steps_10k": "={{ $json.steps_10k }}",
+            "reading": "={{ $json.reading }}",
+            "supplements": "={{ $json.supplements }}",
+            "mindfulness": "={{ $json.mindfulness }}",
+            "sleep_quality": "={{ $json.sleep_quality }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "a634a56a-9830-480e-a6af-131036b817b0",
+      "name": "Save Habits",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1136,
+        736
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=✅ Habits logged for {{ $json.date }}!\n\nWorkout: {{ $json.workout }}\nSteps: {{ $json.steps_10k }}\nReading: {{ $json.reading }}\nSupplements: {{ $json.supplements }}\nMindfulness: {{ $json.mindfulness }}\nSleep: {{ $json.sleep_quality }}\n\nKeep up the great work! 💪",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "76a95ce4-4f25-4da9-85c5-b8d7a368c9f2",
+      "name": "Confirm Habits Saved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1424,
+        736
+      ],
+      "webhookId": "9a0b2f80-fe2a-472f-87ef-d67cf5f27c3f",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 🍽️ Food Tracking Flow\n\nTelegram messages are analyzed:\n- If habit keywords detected → save habits\n- Otherwise → AI analyzes food & updates log",
+        "height": 360,
+        "width": 748,
+        "color": 2
+      },
+      "id": "79a0727c-5b25-4c99-bb9d-1476c7e30d80",
+      "name": "Sticky Note 7297e5a1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🌙 Evening Check-in\n\nScheduled at 9 PM daily\nFetches today's food data\nAsks about workout, steps, reading, supplements, mindfulness, sleep",
+        "height": 360,
+        "width": 764,
+        "color": 3
+      },
+      "id": "2a916af4-fd48-473c-9012-4e711e13335e",
+      "name": "Sticky Note d13a1214",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        368,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🌅 Daily Session Start\n\nScheduled at 00:01 daily\nSends welcome message with goals",
+        "height": 200,
+        "width": 748,
+        "color": 4
+      },
+      "id": "193be9f5-aa82-4080-ab19-f83f7852ef27",
+      "name": "Sticky Note 5409d064",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "X8HkWNS7o9GyNVw3"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date",
+              "keyValue": "={{ $(\"Prepare Evening Check-in\").item.json.currentDate }}"
+            },
+            {
+              "keyName": "chat_id",
+              "keyValue": "6023241557"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "a5babeba-616d-4ae5-b14b-85b0d39f782b",
+      "name": "Fetch Today Habits",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        960
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "chat_id",
+              "value": "={{ $(\"Prepare Evening Check-in\").item.json.chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "checkInMessage",
+              "value": "={{ $(\"Prepare Evening Check-in\").item.json.checkInMessage }}\n\n📊 Today's Progress:\nCalories: {{ $json.total_calories ?? \"Not logged\" }} kcal\nProtein: {{ $json.total_protein ?? \"Not logged\" }}g",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "385c9531-8f49-4e3f-bed2-9fe35092973f",
+      "name": "Add Habit Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        960
+      ]
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 333045256,
+          "message": {
+            "message_id": 60,
+            "from": {
+              "id": 6023241557,
+              "is_bot": false,
+              "first_name": "ENRICO",
+              "last_name": "MELLIS",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 6023241557,
+              "first_name": "ENRICO",
+              "last_name": "MELLIS",
+              "type": "private"
+            },
+            "date": 1773343172,
+            "text": "restart the day"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Current Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Date": {
+      "main": [
+        [
+          {
+            "node": "Detect Habit Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Today Food Log": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Macros from Response": {
+      "main": [
+        [
+          {
+            "node": "Save Food Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Food Log": {
+      "main": [
+        [
+          {
+            "node": "Send Response to User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evening Check-in (9 PM)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Evening Check-in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Evening Check-in": {
+      "main": [
+        [
+          {
+            "node": "Fetch Today Habits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Input": {
+      "main": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Food Tracking Agent": {
+      "main": [
+        [
+          {
+            "node": "Extract Macros from Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Session Start (00:01)": {
+      "main": [
+        [
+          {
+            "node": "Initialize Daily Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Daily Session": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Welcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Habit Response": {
+      "main": [
+        [
+          {
+            "node": "Parse Habit Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Today Food Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Habit Response": {
+      "main": [
+        [
+          {
+            "node": "Save Habits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Habits": {
+      "main": [
+        [
+          {
+            "node": "Confirm Habits Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Today Habits": {
+      "main": [
+        [
+          {
+            "node": "Add Habit Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Habit Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Evening Check-in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3c03c69a-a80d-43c1-ab30-c8b1d99a2e48",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1d659f6ea26b0b26fce416f1577525bfb8b516dd8135bf261fe49a69c4676840"
+  },
+  "id": "BXNHgNjwblsQWKdt",
+  "tags": []
+}
