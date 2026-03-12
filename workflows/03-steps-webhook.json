@@ -37,7 +37,7 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -50,13 +50,16 @@
         "tableId": {
           "__rl": true,
           "value": "daily_summaries",
-          "mode": "list"
-        }
+          "mode": "name"
+        },
+        "upsertKeys": [
+          "date"
+        ]
       },
       "id": "upsert-steps",
       "name": "Save Steps to Supabase",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         640,
         300

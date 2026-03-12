@@ -28,20 +28,20 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "filterType": "string",
-        "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
+        "filterString": "date=eq.{{ $now.format('yyyy-MM-dd') }}",
         "tableId": {
           "__rl": true,
           "value": "food_logs",
-          "mode": "list"
+          "mode": "name"
         }
       },
       "id": "fetch-todays-food",
       "name": "Fetch Today's Food",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         420,
         200
@@ -59,20 +59,20 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "filterType": "string",
-        "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
+        "filterString": "date=eq.{{ $now.format('yyyy-MM-dd') }}",
         "tableId": {
           "__rl": true,
           "value": "daily_summaries",
-          "mode": "list"
+          "mode": "name"
         }
       },
       "id": "fetch-todays-steps",
       "name": "Fetch Today's Steps",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         420,
         400
@@ -125,7 +125,7 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -140,13 +140,16 @@
         "tableId": {
           "__rl": true,
           "value": "conversation_state",
-          "mode": "list"
-        }
+          "mode": "name"
+        },
+        "upsertKeys": [
+          "chat_id"
+        ]
       },
       "id": "set-awaiting-state",
       "name": "Set Awaiting State",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         1080,
         300

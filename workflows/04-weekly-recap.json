@@ -29,20 +29,20 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "filterType": "string",
-        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
+        "filterString": "date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
         "tableId": {
           "__rl": true,
           "value": "daily_summaries",
-          "mode": "list"
+          "mode": "name"
         }
       },
       "id": "fetch-week-summaries",
       "name": "Fetch Week Summaries",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         420,
         200
@@ -60,20 +60,20 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "filterType": "string",
-        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
+        "filterString": "date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
         "tableId": {
           "__rl": true,
           "value": "food_logs",
-          "mode": "list"
+          "mode": "name"
         }
       },
       "id": "fetch-week-food",
       "name": "Fetch Week Food Logs",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         420,
         400
@@ -136,7 +136,7 @@
         "schema": {
           "__rl": true,
           "value": "public",
-          "mode": "list"
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -168,13 +168,13 @@
         "tableId": {
           "__rl": true,
           "value": "weekly_recaps",
-          "mode": "list"
+          "mode": "name"
         }
       },
       "id": "save-weekly-recap",
       "name": "Save Weekly Recap",
       "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         1080,
         200
