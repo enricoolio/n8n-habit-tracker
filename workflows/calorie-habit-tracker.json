@@ -1,0 +1,643 @@
+{
+  "name": "Calorie & Habit Tracker",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "id": "08685dde-3464-4247-8e08-d6fc5015df82",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 500],
+      "webhookId": "telegram-trigger-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "route-callback",
+              "leftValue": "={{ $json.callback_query ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Route Update Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [420, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DateTime = require('luxon').DateTime;\nconst now = DateTime.now().setZone('Europe/Berlin');\nconst currentDate = now.toFormat('yyyy-MM-dd');\n\nconst msg = $input.first().json.message || {};\nconst chatId = String(msg.chat?.id || '6023241557');\nconst sessionKey = chatId + '_' + currentDate;\n\nlet messageText = msg.text || msg.caption || '';\nconst hasPhoto = !!(msg.photo && msg.photo.length > 0);\nconst hasVoice = !!(msg.voice || msg.audio);\n\nreturn [{\n  json: {\n    currentDate,\n    chatId,\n    sessionKey,\n    messageText,\n    hasPhoto,\n    hasVoice\n  }\n}];"
+      },
+      "id": "fbfdda49-40fc-4325-964d-caf42461498a",
+      "name": "Get Current Date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 600]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "tableId": "X8HkWNS7o9GyNVw3",
+        "filterType": "string",
+        "lookupColumn": "date",
+        "lookupValue": "={{ $json.currentDate }}",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "5aeacbf7-5806-445a-a3dc-1a420fe520e8",
+      "name": "Fetch Today Food Log",
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [860, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageData = $(\"Get Current Date\").first().json;\nconst logData = $(\"Fetch Today Food Log\").all();\n\nlet result = {\n  currentDate: messageData.currentDate,\n  chatId: messageData.chatId,\n  sessionKey: messageData.sessionKey,\n  hasPhoto: messageData.hasPhoto,\n  hasVoice: messageData.hasVoice,\n  messageText: messageData.messageText || \"\",\n  total_calories: 0,\n  total_protein: 0,\n  total_carbs: 0,\n  total_fat: 0,\n  meals_log: \"\",\n  workout: null,\n  steps_10k: null,\n  reading: null,\n  supplements: null,\n  mindfulness: null,\n  sleep_quality: null,\n  userInput: \"\"\n};\n\nif (logData.length > 0 && logData[0].json.date) {\n  const log = logData[0].json;\n  result.total_calories = log.total_calories || 0;\n  result.total_protein = log.total_protein || 0;\n  result.total_carbs = log.total_carbs || 0;\n  result.total_fat = log.total_fat || 0;\n  result.meals_log = log.meals_log || \"\";\n  result.workout = log.workout || null;\n  result.steps_10k = log.steps_10k || null;\n  result.reading = log.reading || null;\n  result.supplements = log.supplements || null;\n  result.mindfulness = log.mindfulness || null;\n  result.sleep_quality = log.sleep_quality || null;\n}\n\nif (result.hasPhoto && result.messageText) {\n  result.userInput = result.messageText + \" (see attached food photo)\";\n} else if (result.hasPhoto) {\n  result.userInput = \"I ate this (see attached photo)\";\n} else if (result.hasVoice) {\n  result.userInput = \"(Voice note received - please type your meal instead, voice transcription coming soon)\";\n} else {\n  result.userInput = result.messageText;\n}\n\nlet binary = {};\ntry { binary = $(\"Telegram Trigger\").first().binary || {}; } catch(e) {}\n\nreturn [{ json: result, binary: binary }];"
+      },
+      "id": "c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f",
+      "name": "Prepare AI Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 600]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are Coach Krupt, a no-nonsense calorie and habit tracking assistant on Telegram. You help the user track food intake and daily habits.\n\nUser profile:\n- Goal: cut from 84kg to 80kg\n- BMR: 2216 kcal\n- Daily calorie target: 1900-2100 kcal\n- Protein target: 170g\n- Tracks 6 habits: workout, 10k steps, reading/learning, supplements, mindfulness, sleep quality\n\nToday's running totals:\n- Calories: {{ $json.total_calories }} kcal\n- Protein: {{ $json.total_protein }}g\n- Carbs: {{ $json.total_carbs }}g\n- Fat: {{ $json.total_fat }}g\n- Meals so far: {{ $json.meals_log || 'None yet' }}\n\nHabit status:\n- Workout: {{ $json.workout || 'not logged' }}\n- 10k Steps: {{ $json.steps_10k || 'not logged' }}\n- Reading: {{ $json.reading || 'not logged' }}\n- Supplements: {{ $json.supplements || 'not logged' }}\n- Mindfulness: {{ $json.mindfulness || 'not logged' }}\n- Sleep: {{ $json.sleep_quality || 'not logged' }}\n\nRULES:\n1. When the user logs FOOD (a meal, snack, drink with calories), estimate the macros and respond conversationally. At the END of your response, add a hidden data block on its own line:\n<!-- DATA:{\"type\":\"food\",\"meal\":\"Short meal name\",\"calories\":NUMBER,\"protein\":NUMBER,\"carbs\":NUMBER,\"fat\":NUMBER} -->\n\n2. When the user says \"restart the day\" or \"reset\", confirm and add:\n<!-- DATA:{\"type\":\"reset\"} -->\n\n3. When the user reports habits (like \"I worked out today\" or \"did my reading\"), confirm and add:\n<!-- DATA:{\"type\":\"habits\",\"workout\":\"yes or no\",\"steps_10k\":\"yes or no\",...} -->\nOnly include the habits they mentioned.\n\n4. For questions, conversation, or anything that is NOT food logging, habit reporting, or a reset command, just respond normally WITHOUT any DATA block. This is critical - do not add DATA blocks to conversational responses.\n\n5. If a photo is attached, analyze it to identify the food and estimate macros.\n\n6. Use Telegram Markdown formatting: *bold*, _italic_, `code`.\n\n7. Keep responses concise. Show updated running totals after food logs.\n\n8. Be encouraging but direct. No fluff.",
+          "maxIterations": 5,
+          "returnIntermediateSteps": false
+        },
+        "promptType": "define",
+        "text": "={{ $json.userInput }}",
+        "hasOutputParser": false,
+        "agent": "conversationalAgent"
+      },
+      "id": "10fffb23-d6a2-4a2d-a9e3-0dae435b20f5",
+      "name": "Food Tracking Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1300, 600]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-5-20250929",
+        "options": {
+          "maxTokensToSample": 1024,
+          "temperature": 0.3
+        }
+      },
+      "id": "9e4146de-e969-41e2-af5e-be007d84712b",
+      "name": "Anthropic Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [1320, 820],
+      "credentials": {
+        "anthropicApi": {
+          "id": "3KM9gAODrvTxFBpl",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Prepare AI Input').first().json.sessionKey }}",
+        "contextWindowLength": 15
+      },
+      "id": "36453906-1ca5-43aa-a7db-385ba2a8cc78",
+      "name": "Daily Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [1460, 820]
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = $input.first().json;\nconst preparedData = $(\"Prepare AI Input\").first().json;\n\nlet response = \"\";\nif (agentOutput.output) {\n  response = agentOutput.output;\n} else if (typeof agentOutput === \"string\") {\n  response = agentOutput;\n} else {\n  response = JSON.stringify(agentOutput);\n}\n\nconst dataMatch = response.match(/<!-- DATA:(.*?) -->/s);\nlet data = null;\nlet cleanResponse = response;\n\nif (dataMatch) {\n  try {\n    data = JSON.parse(dataMatch[1]);\n  } catch(e) {\n    data = null;\n  }\n  cleanResponse = response.replace(/<!-- DATA:.*? -->/s, \"\").trim();\n}\n\nconst result = {\n  ai_response: cleanResponse,\n  date: preparedData.currentDate,\n  chat_id: preparedData.chatId,\n  hasDataToSave: false,\n  total_calories: preparedData.total_calories || 0,\n  total_protein: preparedData.total_protein || 0,\n  total_carbs: preparedData.total_carbs || 0,\n  total_fat: preparedData.total_fat || 0,\n  meals_log: preparedData.meals_log || \"\",\n  workout: preparedData.workout || null,\n  steps_10k: preparedData.steps_10k || null,\n  reading: preparedData.reading || null,\n  supplements: preparedData.supplements || null,\n  mindfulness: preparedData.mindfulness || null,\n  sleep_quality: preparedData.sleep_quality || null\n};\n\nif (data && data.type === \"food\") {\n  result.hasDataToSave = true;\n  const mc = data.calories || 0;\n  const mp = data.protein || 0;\n  const mca = data.carbs || 0;\n  const mf = data.fat || 0;\n  const mn = data.meal || \"Unknown\";\n  result.total_calories = (preparedData.total_calories || 0) + mc;\n  result.total_protein = (preparedData.total_protein || 0) + mp;\n  result.total_carbs = (preparedData.total_carbs || 0) + mca;\n  result.total_fat = (preparedData.total_fat || 0) + mf;\n  const entry = mn + \" (\" + mc + \" kcal, \" + mp + \"g P)\";\n  result.meals_log = preparedData.meals_log ? preparedData.meals_log + \"; \" + entry : entry;\n} else if (data && data.type === \"reset\") {\n  result.hasDataToSave = true;\n  result.total_calories = 0;\n  result.total_protein = 0;\n  result.total_carbs = 0;\n  result.total_fat = 0;\n  result.meals_log = \"\";\n} else if (data && data.type === \"habits\") {\n  result.hasDataToSave = true;\n  if (data.workout) result.workout = data.workout;\n  if (data.steps_10k) result.steps_10k = data.steps_10k;\n  if (data.reading) result.reading = data.reading;\n  if (data.supplements) result.supplements = data.supplements;\n  if (data.mindfulness) result.mindfulness = data.mindfulness;\n  if (data.sleep_quality) result.sleep_quality = data.sleep_quality;\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "f3cf9f30-1bfe-4c3b-bdab-adb6d2376f09",
+      "name": "Process AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "route-save",
+              "leftValue": "={{ $json.hasDataToSave }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e4d5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+      "name": "Route Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 600]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "X8HkWNS7o9GyNVw3",
+        "matchingColumns": ["date"],
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "total_calories": "={{ $json.total_calories }}",
+            "total_protein": "={{ $json.total_protein }}",
+            "total_carbs": "={{ $json.total_carbs }}",
+            "total_fat": "={{ $json.total_fat }}",
+            "meals_log": "={{ $json.meals_log }}",
+            "workout": "={{ $json.workout }}",
+            "steps_10k": "={{ $json.steps_10k }}",
+            "reading": "={{ $json.reading }}",
+            "supplements": "={{ $json.supplements }}",
+            "mindfulness": "={{ $json.mindfulness }}",
+            "sleep_quality": "={{ $json.sleep_quality }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "65916c69-78cd-4400-b67d-2dcca06fa1fe",
+      "name": "Save Food Log",
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [2000, 500]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Process AI Response').first().json.chat_id }}",
+        "message": "={{ $('Process AI Response').first().json.ai_response }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "appendAttribution": false
+        }
+      },
+      "id": "6f8fb28e-c792-4bc1-9e77-321c45e69371",
+      "name": "Send Response to User",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2220, 600],
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cb = $input.first().json.callback_query;\nconst parts = cb.data.split(':');\nconst DateTime = require('luxon').DateTime;\n\nreturn [{\n  json: {\n    habit_name: parts[1],\n    habit_value: parts[2],\n    chat_id: String(cb.message.chat.id),\n    currentDate: DateTime.now().setZone('Europe/Berlin').toFormat('yyyy-MM-dd'),\n    callback_query_id: cb.id,\n    message_id: cb.message.message_id\n  }\n}];"
+      },
+      "id": "a6f7b8c9-d0e1-4f2a-3b4c-5d6e7f8091a2",
+      "name": "Parse Callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 200]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "tableId": "X8HkWNS7o9GyNVw3",
+        "filterType": "string",
+        "lookupColumn": "date",
+        "lookupValue": "={{ $json.currentDate }}",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "b7a8c9d0-e1f2-4a3b-4c5d-6e7f8091a2b3",
+      "name": "Fetch Today Callback",
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [860, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const callback = $(\"Parse Callback\").first().json;\nconst fetched = $input.first().json;\n\nconst result = {\n  date: callback.currentDate,\n  chat_id: callback.chat_id,\n  total_calories: fetched.total_calories || 0,\n  total_protein: fetched.total_protein || 0,\n  total_carbs: fetched.total_carbs || 0,\n  total_fat: fetched.total_fat || 0,\n  meals_log: fetched.meals_log || \"\",\n  workout: fetched.workout || null,\n  steps_10k: fetched.steps_10k || null,\n  reading: fetched.reading || null,\n  supplements: fetched.supplements || null,\n  mindfulness: fetched.mindfulness || null,\n  sleep_quality: fetched.sleep_quality || null\n};\n\nconst map = {\n  workout: \"workout\",\n  steps: \"steps_10k\",\n  reading: \"reading\",\n  supplements: \"supplements\",\n  mindfulness: \"mindfulness\",\n  sleep: \"sleep_quality\"\n};\nconst col = map[callback.habit_name];\nif (col) result[col] = callback.habit_value;\n\nconst emoji = {\n  workout: \"💪\",\n  steps: \"🚶\",\n  reading: \"📖\",\n  supplements: \"💊\",\n  mindfulness: \"🧘\",\n  sleep: \"😴\"\n};\nresult.confirmation = (emoji[callback.habit_name] || \"✅\") + \" \" + callback.habit_name + \": \" + (callback.habit_value === \"yes\" ? \"✅\" : \"❌\");\nresult.callback_query_id = callback.callback_query_id;\n\nreturn [{ json: result }];"
+      },
+      "id": "c8b9d0e1-f2a3-4b4c-5d6e-7f8091a2b3c4",
+      "name": "Build Habit Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 200]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "X8HkWNS7o9GyNVw3",
+        "matchingColumns": ["date"],
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "chat_id": "={{ $json.chat_id }}",
+            "total_calories": "={{ $json.total_calories }}",
+            "total_protein": "={{ $json.total_protein }}",
+            "total_carbs": "={{ $json.total_carbs }}",
+            "total_fat": "={{ $json.total_fat }}",
+            "meals_log": "={{ $json.meals_log }}",
+            "workout": "={{ $json.workout }}",
+            "steps_10k": "={{ $json.steps_10k }}",
+            "reading": "={{ $json.reading }}",
+            "supplements": "={{ $json.supplements }}",
+            "mindfulness": "={{ $json.mindfulness }}",
+            "sleep_quality": "={{ $json.sleep_quality }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "d9c0e1f2-a3b4-4c5d-6e7f-8091a2b3c4d5",
+      "name": "Save Habit Callback",
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.chat_id }}",
+        "message": "={{ $json.confirmation }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e0d1f2a3-b4c5-4d6e-7f80-91a2b3c4d5e6",
+      "name": "Send Callback Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1520, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21
+            }
+          ]
+        }
+      },
+      "id": "61eea31e-dd6b-4686-a045-809dd57013b9",
+      "name": "Evening Check-in (9 PM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 900]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DateTime = require('luxon').DateTime;\nconst currentDate = DateTime.now().setZone('Europe/Berlin').toFormat('yyyy-MM-dd');\nreturn [{ json: { chat_id: '6023241557', currentDate } }];"
+      },
+      "id": "f1e2a3b4-c5d6-4e7f-8091-a2b3c4d5e6f7",
+      "name": "Evening Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 900]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "tableId": "X8HkWNS7o9GyNVw3",
+        "filterType": "string",
+        "lookupColumn": "date",
+        "lookupValue": "={{ $json.currentDate }}",
+        "options": {},
+        "onError": "continueRegularOutput"
+      },
+      "id": "a2f3b4c5-d6e7-4f80-91a2-b3c4d5e6f7a8",
+      "name": "Fetch Today Evening",
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [640, 900]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $(\"Evening Config\").first().json;\nconst fetched = $input.first().json;\n\nconst cal = fetched.total_calories || 0;\nconst pro = fetched.total_protein || 0;\nconst carbs = fetched.total_carbs || 0;\nconst fat = fetched.total_fat || 0;\n\nlet msg = \"🌙 *Evening Check-in*\\n\\n\";\nmsg += \"📊 *Today's Progress:*\\n\";\nmsg += \"Calories: \" + cal + \" / 1900 kcal\\n\";\nmsg += \"Protein: \" + pro + \"g / 170g\\n\";\nmsg += \"Carbs: \" + carbs + \"g | Fat: \" + fat + \"g\\n\\n\";\nmsg += \"How did your habits go today? Tap below:\";\n\nconst kb = {\n  inline_keyboard: [\n    [\n      { text: \"💪 Workout ✅\", callback_data: \"habit:workout:yes\" },\n      { text: \"💪 Workout ❌\", callback_data: \"habit:workout:no\" }\n    ],\n    [\n      { text: \"🚶 10k Steps ✅\", callback_data: \"habit:steps:yes\" },\n      { text: \"🚶 10k Steps ❌\", callback_data: \"habit:steps:no\" }\n    ],\n    [\n      { text: \"📖 Reading ✅\", callback_data: \"habit:reading:yes\" },\n      { text: \"📖 Reading ❌\", callback_data: \"habit:reading:no\" }\n    ],\n    [\n      { text: \"💊 Supplements ✅\", callback_data: \"habit:supplements:yes\" },\n      { text: \"💊 Supplements ❌\", callback_data: \"habit:supplements:no\" }\n    ],\n    [\n      { text: \"🧘 Mindful ✅\", callback_data: \"habit:mindfulness:yes\" },\n      { text: \"🧘 Mindful ❌\", callback_data: \"habit:mindfulness:no\" }\n    ],\n    [\n      { text: \"😴 Sleep Good\", callback_data: \"habit:sleep:yes\" },\n      { text: \"😴 Sleep Bad\", callback_data: \"habit:sleep:no\" }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: config.chat_id,\n    message: msg,\n    reply_markup: JSON.stringify(kb)\n  }\n}];"
+      },
+      "id": "b3a4c5d6-e7f8-4091-a2b3-c4d5e6f7a8b9",
+      "name": "Build Evening Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 900]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.chat_id }}",
+        "message": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "appendAttribution": false,
+          "reply_markup": "={{ $json.reply_markup }}"
+        }
+      },
+      "id": "e77c7039-144e-4edf-9466-8891702a46d6",
+      "name": "Send Evening Check-in",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1080, 900],
+      "credentials": {
+        "telegramApi": {
+          "id": "yfN9XLLwg4xdnuxt",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Calorie & Habit Tracker\n\n**Main Flow:** Telegram messages -> AI food tracking with structured JSON extraction\n**Callback Flow:** Inline keyboard habit buttons -> DataTable upsert\n**Evening Flow:** 9 PM check-in with inline habit buttons + daily summary\n\n**Key fixes:**\n- JSON data extraction (not fragile regex)\n- AI classifies food vs habits vs conversation\n- Binary passthrough for food photos\n- CET timezone throughout\n- Inline keyboard for habits\n- Memory window: 15 (was 100)\n- Daily welcome removed",
+        "height": 360,
+        "width": 440
+      },
+      "id": "s1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, 160]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route Update Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Update Type": {
+      "main": [
+        [
+          {
+            "node": "Parse Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Current Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Date": {
+      "main": [
+        [
+          {
+            "node": "Fetch Today Food Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Today Food Log": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Input": {
+      "main": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Food Tracking Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Food Tracking Agent": {
+      "main": [
+        [
+          {
+            "node": "Process AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Response": {
+      "main": [
+        [
+          {
+            "node": "Route Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Response": {
+      "main": [
+        [
+          {
+            "node": "Save Food Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Response to User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Food Log": {
+      "main": [
+        [
+          {
+            "node": "Send Response to User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Callback": {
+      "main": [
+        [
+          {
+            "node": "Fetch Today Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Today Callback": {
+      "main": [
+        [
+          {
+            "node": "Build Habit Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Habit Update": {
+      "main": [
+        [
+          {
+            "node": "Save Habit Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Habit Callback": {
+      "main": [
+        [
+          {
+            "node": "Send Callback Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evening Check-in (9 PM)": {
+      "main": [
+        [
+          {
+            "node": "Evening Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evening Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch Today Evening",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Today Evening": {
+      "main": [
+        [
+          {
+            "node": "Build Evening Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Evening Message": {
+      "main": [
+        [
+          {
+            "node": "Send Evening Check-in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-12T00:00:00.000Z",
+  "versionId": "2",
+  "id": "BXNHgNjwblsQWKdt",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1d659f6ea26b0b26fce416f1577525bfb8b516dd8135bf261fe49a69c4676840"
+  }
+}
