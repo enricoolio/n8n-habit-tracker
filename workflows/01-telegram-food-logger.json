@@ -28,13 +28,17 @@
       "parameters": {
         "operation": "select",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "conversation_state"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "filterType": "string",
-        "filterString": "=chat_id=eq.{{ $json.message.chat.id }}"
+        "filterString": "=chat_id=eq.{{ $json.message.chat.id }}",
+        "tableId": {
+          "__rl": true,
+          "value": "conversation_state",
+          "mode": "list"
+        }
       },
       "id": "fetch-state",
       "name": "Fetch Conversation State",
@@ -340,10 +344,9 @@
       "parameters": {
         "operation": "upsert",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "daily_summaries"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -366,6 +369,11 @@
             "calendar_reflection": "={{ $node['Parse Check-in Reply'].json.habits.calendar_reflection }}",
             "evening_notes": "={{ $node['Parse Check-in Reply'].json.rawReply }}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "daily_summaries",
+          "mode": "list"
         }
       },
       "id": "save-daily-summary",
@@ -387,10 +395,9 @@
       "parameters": {
         "operation": "upsert",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "conversation_state"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -399,6 +406,11 @@
             "state": "idle",
             "context": "={}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "conversation_state",
+          "mode": "list"
         }
       },
       "id": "reset-state",
@@ -535,15 +547,19 @@
       "parameters": {
         "operation": "select",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "food_logs"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "filterType": "string",
         "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
         "options": {
           "orderByField": "logged_at"
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "food_logs",
+          "mode": "list"
         }
       },
       "id": "fetch-todays-meals-photo",
@@ -624,10 +640,9 @@
       "parameters": {
         "operation": "insert",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "food_logs"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -648,6 +663,11 @@
             "photo_url": "={{ $node['Encode Photo Base64'].json.photoUrl }}",
             "is_training_day": "={{ $node['Build Context (Photo)'].json.isTrainingDay }}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "food_logs",
+          "mode": "list"
         }
       },
       "id": "save-photo-meal",
@@ -784,15 +804,19 @@
       "parameters": {
         "operation": "select",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "food_logs"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "filterType": "string",
         "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
         "options": {
           "orderByField": "logged_at"
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "food_logs",
+          "mode": "list"
         }
       },
       "id": "fetch-todays-meals-text",
@@ -873,10 +897,9 @@
       "parameters": {
         "operation": "insert",
         "schema": {
-          "value": "public"
-        },
-        "table": {
-          "value": "food_logs"
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -896,6 +919,11 @@
             "input_type": "={{ $json.input_type }}",
             "is_training_day": "={{ $node['Build Meal Context'].json.isTrainingDay }}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "food_logs",
+          "mode": "list"
         }
       },
       "id": "save-to-supabase",

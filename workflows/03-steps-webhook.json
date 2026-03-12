@@ -12,7 +12,10 @@
       "name": "Steps Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "notes": "Receives step count from iOS Shortcut. POST to /webhook/steps with JSON body: { \"steps\": 12345, \"date\": \"2026-03-12\" }"
     },
     {
@@ -23,13 +26,19 @@
       "name": "Parse Step Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
         "operation": "upsert",
-        "schema": { "value": "public" },
-        "table": { "value": "daily_summaries" },
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -37,13 +46,21 @@
             "steps": "={{ $json.steps }}",
             "steps_10k": "={{ $json.hit10k }}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "daily_summaries",
+          "mode": "list"
         }
       },
       "id": "upsert-steps",
       "name": "Save Steps to Supabase",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -60,22 +77,53 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     }
   ],
   "connections": {
     "Steps Webhook": {
-      "main": [[{ "node": "Parse Step Data", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Step Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Step Data": {
-      "main": [[{ "node": "Save Steps to Supabase", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Steps to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Steps to Supabase": {
-      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [{ "name": "habit-tracker" }]
+  "tags": [
+    {
+      "name": "habit-tracker"
+    }
+  ]
 }

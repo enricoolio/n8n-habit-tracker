@@ -17,22 +17,36 @@
       "name": "Every Sunday at 8pm",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "notes": "Triggers every Sunday at 8:00 PM for weekly recap"
     },
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "daily_summaries" },
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
         "filterType": "string",
-        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}"
+        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
+        "tableId": {
+          "__rl": true,
+          "value": "daily_summaries",
+          "mode": "list"
+        }
       },
       "id": "fetch-week-summaries",
       "name": "Fetch Week Summaries",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [420, 200],
+      "position": [
+        420,
+        200
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -43,16 +57,27 @@
     {
       "parameters": {
         "operation": "select",
-        "schema": { "value": "public" },
-        "table": { "value": "food_logs" },
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
         "filterType": "string",
-        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}"
+        "filterString": "=date=gte.{{ $now.minus({days: 6}).format('yyyy-MM-dd') }}&date=lte.{{ $now.format('yyyy-MM-dd') }}",
+        "tableId": {
+          "__rl": true,
+          "value": "food_logs",
+          "mode": "list"
+        }
       },
       "id": "fetch-week-food",
       "name": "Fetch Week Food Logs",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [420, 400],
+      "position": [
+        420,
+        400
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -68,7 +93,10 @@
       "name": "Compile Week Stats",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -79,8 +107,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -91,13 +125,19 @@
       "name": "Claude - Weekly Recap",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
-        "schema": { "value": "public" },
-        "table": { "value": "weekly_recaps" },
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -124,13 +164,21 @@
             "worst_day": "={{ $node['Compile Week Stats'].json.weekData.worstDay }}",
             "ai_weekly_summary": "={{ $json.content[0].text }}"
           }
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "weekly_recaps",
+          "mode": "list"
         }
       },
       "id": "save-weekly-recap",
       "name": "Save Weekly Recap",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1080, 200],
+      "position": [
+        1080,
+        200
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "SUPABASE_CREDENTIAL_ID",
@@ -141,14 +189,19 @@
     {
       "parameters": {
         "chatId": "6023241557",
-        "text": "=📊 WEEKLY RECAP\n\n{{ $node['Claude - Weekly Recap'].json.content[0].text }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "text": "=\ud83d\udcca WEEKLY RECAP\n\n{{ $node['Claude - Weekly Recap'].json.content[0].text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
       "id": "send-recap",
       "name": "Send Weekly Recap",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1080, 400],
+      "position": [
+        1080,
+        400
+      ],
       "credentials": {
         "telegramApi": {
           "id": "TELEGRAM_CREDENTIAL_ID",
@@ -162,25 +215,65 @@
     "Every Sunday at 8pm": {
       "main": [
         [
-          { "node": "Fetch Week Summaries", "type": "main", "index": 0 },
-          { "node": "Fetch Week Food Logs", "type": "main", "index": 0 }
+          {
+            "node": "Fetch Week Summaries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Week Food Logs",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Fetch Week Summaries": {
-      "main": [[{ "node": "Compile Week Stats", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Compile Week Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Week Food Logs": {
-      "main": [[{ "node": "Compile Week Stats", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Compile Week Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Compile Week Stats": {
-      "main": [[{ "node": "Claude - Weekly Recap", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude - Weekly Recap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude - Weekly Recap": {
       "main": [
         [
-          { "node": "Save Weekly Recap", "type": "main", "index": 0 },
-          { "node": "Send Weekly Recap", "type": "main", "index": 0 }
+          {
+            "node": "Save Weekly Recap",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Weekly Recap",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
@@ -188,5 +281,9 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [{ "name": "habit-tracker" }]
+  "tags": [
+    {
+      "name": "habit-tracker"
+    }
+  ]
 }
