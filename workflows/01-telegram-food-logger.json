@@ -176,7 +176,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.notion.com/v1/databases/2d8d975446f28154a29aea8224e8c68a/query",
+        "url": "https://api.notion.com/v1/databases/2d8d975446f2812e903fe564f59453a2/query",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -291,7 +291,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"parent\": { \"database_id\": \"2d8d975446f28154a29aea8224e8c68a\" },\n  \"properties\": {\n    \"what went wrong?\": { \"title\": [{ \"text\": { \"content\": \"\" } }] },\n    \"Date\": { \"date\": { \"start\": \"{{ $now.format('yyyy-MM-dd') }}\" } },\n    \"8 hours sleep\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.sleep_8h }} },\n    \"Eat healthy \": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.eat_healthy }} },\n    \"Work out\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.workout_done }} },\n    \"10.000 Steps\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.steps_10k }} },\n    \"Read 30 minutes\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.read_30min }} },\n    \"Supplements\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.supplements }} },\n    \"Positivity\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.positivity }} },\n    \"Calendar & Reflection\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.calendar_reflection }} }\n  }\n}"
+        "jsonBody": "={\n  \"parent\": { \"database_id\": \"2d8d975446f2812e903fe564f59453a2\" },\n  \"properties\": {\n    \"what went wrong?\": { \"title\": [{ \"text\": { \"content\": \"\" } }] },\n    \"Date\": { \"date\": { \"start\": \"{{ $now.format('yyyy-MM-dd') }}\" } },\n    \"8 hours sleep\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.sleep_8h }} },\n    \"Eat healthy \": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.eat_healthy }} },\n    \"Work out\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.workout_done }} },\n    \"10.000 Steps\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.steps_10k }} },\n    \"Read 30 minutes\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.read_30min }} },\n    \"Supplements\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.supplements }} },\n    \"Positivity\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.positivity }} },\n    \"Calendar & Reflection\": { \"checkbox\": {{ $node['Check Notion Page Exists'].json.habits.calendar_reflection }} }\n  }\n}"
       },
       "id": "create-notion-page",
       "name": "Create Notion Page",
