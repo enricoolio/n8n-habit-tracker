@@ -89,7 +89,7 @@
     {
       "parameters": {
         "options": {
-          "systemMessage": "=You are Coach Krupt, a no-nonsense calorie and habit tracking assistant on Telegram. You help the user track food intake and daily habits.\n\nUser profile:\n- Goal: cut from 84kg to 80kg\n- BMR: 2216 kcal\n- Daily calorie target: 1900-2100 kcal\n- Protein target: 170g\n- Tracks 6 habits: workout, 10k steps, reading/learning, supplements, mindfulness, sleep quality\n\nToday's running totals:\n- Calories: {{ $json.total_calories }} kcal\n- Protein: {{ $json.total_protein }}g\n- Carbs: {{ $json.total_carbs }}g\n- Fat: {{ $json.total_fat }}g\n- Meals so far: {{ $json.meals_log || 'None yet' }}\n\nHabit status:\n- Workout: {{ $json.workout || 'not logged' }}\n- 10k Steps: {{ $json.steps_10k || 'not logged' }}\n- Reading: {{ $json.reading || 'not logged' }}\n- Supplements: {{ $json.supplements || 'not logged' }}\n- Mindfulness: {{ $json.mindfulness || 'not logged' }}\n- Sleep: {{ $json.sleep_quality || 'not logged' }}\n\nRULES:\n1. When the user logs FOOD (a meal, snack, drink with calories), estimate the macros and respond conversationally. At the END of your response, add a hidden data block on its own line:\n<!-- DATA:{\"type\":\"food\",\"meal\":\"Short meal name\",\"calories\":NUMBER,\"protein\":NUMBER,\"carbs\":NUMBER,\"fat\":NUMBER} -->\n\n2. When the user says \"restart the day\" or \"reset\", confirm and add:\n<!-- DATA:{\"type\":\"reset\"} -->\n\n3. When the user reports habits (like \"I worked out today\" or \"did my reading\"), confirm and add:\n<!-- DATA:{\"type\":\"habits\",\"workout\":\"yes or no\",\"steps_10k\":\"yes or no\",...} -->\nOnly include the habits they mentioned.\n\n4. For questions, conversation, or anything that is NOT food logging, habit reporting, or a reset command, just respond normally WITHOUT any DATA block. This is critical - do not add DATA blocks to conversational responses.\n\n5. If a photo is attached, analyze it to identify the food and estimate macros.\n\n6. Use Telegram Markdown formatting: *bold*, _italic_, `code`.\n\n7. Keep responses concise. Show updated running totals after food logs.\n\n8. Be encouraging but direct. No fluff.",
+          "systemMessage": "=You are Coach Krupt, a no-nonsense calorie and habit tracking assistant on Telegram. You help the user track food intake and daily habits.\n\nUser profile:\n- Goal: cut from 84kg to 80kg\n- BMR: 2216 kcal\n- Daily calorie target: 1900-2100 kcal\n- Protein target: 170g\n- Tracks 6 habits: workout, 10k steps, reading/learning, supplements, mindfulness, sleep quality\n\nToday's running totals:\n- Calories: {{ $json.total_calories }} kcal\n- Protein: {{ $json.total_protein }}g\n- Carbs: {{ $json.total_carbs }}g\n- Fat: {{ $json.total_fat }}g\n- Meals so far: {{ $json.meals_log || 'None yet' }}\n\nHabit status:\n- Workout: {{ $json.workout || 'not logged' }}\n- 10k Steps: {{ $json.steps_10k || 'not logged' }}\n- Reading: {{ $json.reading || 'not logged' }}\n- Supplements: {{ $json.supplements || 'not logged' }}\n- Mindfulness: {{ $json.mindfulness || 'not logged' }}\n- Sleep: {{ $json.sleep_quality || 'not logged' }}\n\nRULES:\n1. When the user logs FOOD (a meal, snack, drink with calories), estimate the macros and respond conversationally. At the END of your response, add a hidden data block on its own line:\n<!-- DATA:{\"type\":\"food\",\"meal\":\"Short meal name\",\"calories\":NUMBER,\"protein\":NUMBER,\"carbs\":NUMBER,\"fat\":NUMBER} -->\n\n2. When the user says \"restart the day\" or \"reset\", confirm and add:\n<!-- DATA:{\"type\":\"reset\"} -->\n\n3. When the user reports habits (like \"I worked out today\" or \"did my reading\"), confirm and add:\n<!-- DATA:{\"type\":\"habits\",\"workout\":\"yes or no\",\"steps_10k\":\"yes or no\",...} -->\nOnly include the habits they mentioned.\n\n4. For questions, conversation, or anything that is NOT food logging, habit reporting, or a reset command, just respond normally WITHOUT any DATA block. This is critical - do not add DATA blocks to conversational responses.\n\n5. If a photo is attached, analyze it to identify the food and estimate macros.\n\n6. Use Telegram HTML formatting: <b>bold</b>, <i>italic</i>, <code>code</code>. Do NOT use Markdown.\n\n7. Keep responses concise. Show updated running totals after food logs.\n\n8. Be encouraging but direct. No fluff.",
           "maxIterations": 5,
           "returnIntermediateSteps": false
         },
@@ -138,7 +138,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const agentOutput = $input.first().json;\nconst preparedData = $(\"Prepare AI Input\").first().json;\n\nlet response = \"\";\nif (agentOutput.output) {\n  response = agentOutput.output;\n} else if (typeof agentOutput === \"string\") {\n  response = agentOutput;\n} else {\n  response = JSON.stringify(agentOutput);\n}\n\nconst dataMatch = response.match(/<!-- DATA:(.*?) -->/s);\nlet data = null;\nlet cleanResponse = response;\n\nif (dataMatch) {\n  try {\n    data = JSON.parse(dataMatch[1]);\n  } catch(e) {\n    data = null;\n  }\n  cleanResponse = response.replace(/<!-- DATA:.*? -->/s, \"\").trim();\n}\n\nconst result = {\n  ai_response: cleanResponse,\n  date: preparedData.currentDate,\n  chat_id: preparedData.chatId,\n  hasDataToSave: false,\n  total_calories: preparedData.total_calories || 0,\n  total_protein: preparedData.total_protein || 0,\n  total_carbs: preparedData.total_carbs || 0,\n  total_fat: preparedData.total_fat || 0,\n  meals_log: preparedData.meals_log || \"\",\n  workout: preparedData.workout || null,\n  steps_10k: preparedData.steps_10k || null,\n  reading: preparedData.reading || null,\n  supplements: preparedData.supplements || null,\n  mindfulness: preparedData.mindfulness || null,\n  sleep_quality: preparedData.sleep_quality || null\n};\n\nif (data && data.type === \"food\") {\n  result.hasDataToSave = true;\n  const mc = data.calories || 0;\n  const mp = data.protein || 0;\n  const mca = data.carbs || 0;\n  const mf = data.fat || 0;\n  const mn = data.meal || \"Unknown\";\n  result.total_calories = (preparedData.total_calories || 0) + mc;\n  result.total_protein = (preparedData.total_protein || 0) + mp;\n  result.total_carbs = (preparedData.total_carbs || 0) + mca;\n  result.total_fat = (preparedData.total_fat || 0) + mf;\n  const entry = mn + \" (\" + mc + \" kcal, \" + mp + \"g P)\";\n  result.meals_log = preparedData.meals_log ? preparedData.meals_log + \"; \" + entry : entry;\n} else if (data && data.type === \"reset\") {\n  result.hasDataToSave = true;\n  result.total_calories = 0;\n  result.total_protein = 0;\n  result.total_carbs = 0;\n  result.total_fat = 0;\n  result.meals_log = \"\";\n} else if (data && data.type === \"habits\") {\n  result.hasDataToSave = true;\n  if (data.workout) result.workout = data.workout;\n  if (data.steps_10k) result.steps_10k = data.steps_10k;\n  if (data.reading) result.reading = data.reading;\n  if (data.supplements) result.supplements = data.supplements;\n  if (data.mindfulness) result.mindfulness = data.mindfulness;\n  if (data.sleep_quality) result.sleep_quality = data.sleep_quality;\n}\n\nreturn [{ json: result }];"
+        "jsCode": "const agentOutput = $input.first().json;\nconst preparedData = $(\"Prepare AI Input\").first().json;\n\nlet response = \"\";\nif (agentOutput.output) {\n  response = agentOutput.output;\n} else if (typeof agentOutput === \"string\") {\n  response = agentOutput;\n} else {\n  response = JSON.stringify(agentOutput);\n}\n\nconst dataMatch = response.match(/<!-- DATA:(.*?) -->/s);\nlet data = null;\nlet cleanResponse = response;\n\nif (dataMatch) {\n  try {\n    data = JSON.parse(dataMatch[1]);\n  } catch(e) {\n    data = null;\n  }\n  cleanResponse = response.replace(/<!-- DATA:.*? -->/s, \"\").trim();\n}\n\nconst result = {\n  ai_response: cleanResponse,\n  date: preparedData.currentDate,\n  chat_id: preparedData.chatId,\n  hasDataToSave: false,\n  total_calories: preparedData.total_calories || 0,\n  total_protein: preparedData.total_protein || 0,\n  total_carbs: preparedData.total_carbs || 0,\n  total_fat: preparedData.total_fat || 0,\n  meals_log: preparedData.meals_log || \"\",\n  workout: preparedData.workout || null,\n  steps_10k: preparedData.steps_10k || null,\n  reading: preparedData.reading || null,\n  supplements: preparedData.supplements || null,\n  mindfulness: preparedData.mindfulness || null,\n  sleep_quality: preparedData.sleep_quality || null\n};\n\nif (data && data.type === \"food\") {\n  result.hasDataToSave = true;\n  const mc = Number(data.calories) || 0;\n  const mp = Number(data.protein) || 0;\n  const mca = Number(data.carbs) || 0;\n  const mf = Number(data.fat) || 0;\n  const mn = data.meal || \"Unknown\";\n  result.total_calories = (preparedData.total_calories || 0) + mc;\n  result.total_protein = (preparedData.total_protein || 0) + mp;\n  result.total_carbs = (preparedData.total_carbs || 0) + mca;\n  result.total_fat = (preparedData.total_fat || 0) + mf;\n  const entry = mn + \" (\" + mc + \" kcal, \" + mp + \"g P)\";\n  result.meals_log = preparedData.meals_log ? preparedData.meals_log + \"; \" + entry : entry;\n} else if (data && data.type === \"reset\") {\n  result.hasDataToSave = true;\n  result.total_calories = 0;\n  result.total_protein = 0;\n  result.total_carbs = 0;\n  result.total_fat = 0;\n  result.meals_log = \"\";\n} else if (data && data.type === \"habits\") {\n  result.hasDataToSave = true;\n  if (data.workout) result.workout = data.workout;\n  if (data.steps_10k) result.steps_10k = data.steps_10k;\n  if (data.reading) result.reading = data.reading;\n  if (data.supplements) result.supplements = data.supplements;\n  if (data.mindfulness) result.mindfulness = data.mindfulness;\n  if (data.sleep_quality) result.sleep_quality = data.sleep_quality;\n}\n\nreturn [{ json: result }];"
       },
       "id": "f3cf9f30-1bfe-4c3b-bdab-adb6d2376f09",
       "name": "Process AI Response",
@@ -211,7 +211,7 @@
         "sendTo": "={{ $('Process AI Response').first().json.chat_id }}",
         "message": "={{ $('Process AI Response').first().json.ai_response }}",
         "additionalFields": {
-          "parse_mode": "Markdown",
+          "parse_mode": "HTML",
           "appendAttribution": false
         }
       },
@@ -229,7 +229,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cb = $input.first().json.callback_query;\nconst parts = cb.data.split(':');\nconst DateTime = require('luxon').DateTime;\n\nreturn [{\n  json: {\n    habit_name: parts[1],\n    habit_value: parts[2],\n    chat_id: String(cb.message.chat.id),\n    currentDate: DateTime.now().setZone('Europe/Berlin').toFormat('yyyy-MM-dd'),\n    callback_query_id: cb.id,\n    message_id: cb.message.message_id\n  }\n}];"
+        "jsCode": "const cb = $input.first().json.callback_query;\nconst parts = cb.data.split(':');\nconst DateTime = require('luxon').DateTime;\n\nreturn [{\n  json: {\n    habit_name: parts[1],\n    habit_value: parts[2],\n    chat_id: String(cb.message.chat.id),\n    currentDate: parts[3] || DateTime.now().setZone('Europe/Berlin').toFormat('yyyy-MM-dd'),\n    callback_query_id: cb.id,\n    message_id: cb.message.message_id\n  }\n}];"
       },
       "id": "a6f7b8c9-d0e1-4f2a-3b4c-5d6e7f8091a2",
       "name": "Parse Callback",
@@ -296,16 +296,19 @@
     },
     {
       "parameters": {
-        "sendTo": "={{ $json.chat_id }}",
-        "message": "={{ $json.confirmation }}",
-        "additionalFields": {
-          "appendAttribution": false
-        }
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot/answerCallbackQuery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "telegramApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"callback_query_id\": \"{{ $json.callback_query_id }}\", \"text\": \"{{ $json.confirmation }}\"}",
+        "options": {}
       },
       "id": "e0d1f2a3-b4c5-4d6e-7f80-91a2b3c4d5e6",
-      "name": "Send Callback Confirmation",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "Answer Callback Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [1520, 200],
       "credentials": {
         "telegramApi": {
@@ -358,7 +361,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const config = $(\"Evening Config\").first().json;\nconst fetched = $input.first().json;\n\nconst cal = fetched.total_calories || 0;\nconst pro = fetched.total_protein || 0;\nconst carbs = fetched.total_carbs || 0;\nconst fat = fetched.total_fat || 0;\n\nlet msg = \"🌙 *Evening Check-in*\\n\\n\";\nmsg += \"📊 *Today's Progress:*\\n\";\nmsg += \"Calories: \" + cal + \" / 1900 kcal\\n\";\nmsg += \"Protein: \" + pro + \"g / 170g\\n\";\nmsg += \"Carbs: \" + carbs + \"g | Fat: \" + fat + \"g\\n\\n\";\nmsg += \"How did your habits go today? Tap below:\";\n\nconst kb = {\n  inline_keyboard: [\n    [\n      { text: \"💪 Workout ✅\", callback_data: \"habit:workout:yes\" },\n      { text: \"💪 Workout ❌\", callback_data: \"habit:workout:no\" }\n    ],\n    [\n      { text: \"🚶 10k Steps ✅\", callback_data: \"habit:steps:yes\" },\n      { text: \"🚶 10k Steps ❌\", callback_data: \"habit:steps:no\" }\n    ],\n    [\n      { text: \"📖 Reading ✅\", callback_data: \"habit:reading:yes\" },\n      { text: \"📖 Reading ❌\", callback_data: \"habit:reading:no\" }\n    ],\n    [\n      { text: \"💊 Supplements ✅\", callback_data: \"habit:supplements:yes\" },\n      { text: \"💊 Supplements ❌\", callback_data: \"habit:supplements:no\" }\n    ],\n    [\n      { text: \"🧘 Mindful ✅\", callback_data: \"habit:mindfulness:yes\" },\n      { text: \"🧘 Mindful ❌\", callback_data: \"habit:mindfulness:no\" }\n    ],\n    [\n      { text: \"😴 Sleep Good\", callback_data: \"habit:sleep:yes\" },\n      { text: \"😴 Sleep Bad\", callback_data: \"habit:sleep:no\" }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: config.chat_id,\n    message: msg,\n    reply_markup: JSON.stringify(kb)\n  }\n}];"
+        "jsCode": "const config = $(\"Evening Config\").first().json;\nconst fetched = $input.first().json;\n\nconst cal = fetched.total_calories || 0;\nconst pro = fetched.total_protein || 0;\nconst carbs = fetched.total_carbs || 0;\nconst fat = fetched.total_fat || 0;\n\nlet msg = \"🌙 <b>Evening Check-in</b>\\n\\n\";\nmsg += \"📊 <b>Today's Progress:</b>\\n\";\nmsg += \"Calories: \" + cal + \" / 1900 kcal\\n\";\nmsg += \"Protein: \" + pro + \"g / 170g\\n\";\nmsg += \"Carbs: \" + carbs + \"g | Fat: \" + fat + \"g\\n\\n\";\nmsg += \"How did your habits go today? Tap below:\";\n\nconst kb = {\n  inline_keyboard: [\n    [\n      { text: \"💪 Workout ✅\", callback_data: \"habit:workout:yes:\" + config.currentDate },\n      { text: \"💪 Workout ❌\", callback_data: \"habit:workout:no:\" + config.currentDate }\n    ],\n    [\n      { text: \"🚶 10k Steps ✅\", callback_data: \"habit:steps:yes:\" + config.currentDate },\n      { text: \"🚶 10k Steps ❌\", callback_data: \"habit:steps:no:\" + config.currentDate }\n    ],\n    [\n      { text: \"📖 Reading ✅\", callback_data: \"habit:reading:yes:\" + config.currentDate },\n      { text: \"📖 Reading ❌\", callback_data: \"habit:reading:no:\" + config.currentDate }\n    ],\n    [\n      { text: \"💊 Supplements ✅\", callback_data: \"habit:supplements:yes:\" + config.currentDate },\n      { text: \"💊 Supplements ❌\", callback_data: \"habit:supplements:no:\" + config.currentDate }\n    ],\n    [\n      { text: \"🧘 Mindful ✅\", callback_data: \"habit:mindfulness:yes:\" + config.currentDate },\n      { text: \"🧘 Mindful ❌\", callback_data: \"habit:mindfulness:no:\" + config.currentDate }\n    ],\n    [\n      { text: \"😴 Sleep Good\", callback_data: \"habit:sleep:yes:\" + config.currentDate },\n      { text: \"😴 Sleep Bad\", callback_data: \"habit:sleep:no:\" + config.currentDate }\n    ]\n  ]\n};\n\nreturn [{\n  json: {\n    chat_id: config.chat_id,\n    message: msg,\n    reply_markup: JSON.stringify(kb)\n  }\n}];"
       },
       "id": "b3a4c5d6-e7f8-4091-a2b3-c4d5e6f7a8b9",
       "name": "Build Evening Message",
@@ -371,7 +374,7 @@
         "sendTo": "={{ $json.chat_id }}",
         "message": "={{ $json.message }}",
         "additionalFields": {
-          "parse_mode": "Markdown",
+          "parse_mode": "HTML",
           "appendAttribution": false,
           "reply_markup": "={{ $json.reply_markup }}"
         }
@@ -574,7 +577,7 @@
       "main": [
         [
           {
-            "node": "Send Callback Confirmation",
+            "node": "Answer Callback Query",
             "type": "main",
             "index": 0
           }
