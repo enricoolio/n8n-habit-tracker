@@ -1,0 +1,307 @@
+{
+  "name": "Telegram Food Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "notes": "Receives all messages from your Telegram bot"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/",
+                    "operator": { "type": "string", "operation": "startsWith" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "Command"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.photo }}",
+                    "rightValue": "",
+                    "operator": { "type": "string", "operation": "exists" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "Photo"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.voice }}",
+                    "rightValue": "",
+                    "operator": { "type": "string", "operation": "exists" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "Voice"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "",
+                    "operator": { "type": "string", "operation": "exists" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputLabel": "Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-message-type",
+      "name": "Route Message Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [420, 300],
+      "notes": "Routes to different handlers based on message type: command, photo, voice, or text"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $credentials.telegramApi.accessToken }}/getFile",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $json.message.photo.slice(-1)[0].file_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-photo-file",
+      "name": "Get Photo File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "notes": "Gets the file path for the largest photo version"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/bot{{ $credentials.telegramApi.accessToken }}/{{ $json.result.file_path }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-photo",
+      "name": "Download Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 200],
+      "notes": "Downloads the actual photo file"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": { "value": "public" },
+        "table": { "value": "food_logs" },
+        "filterType": "string",
+        "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}",
+        "options": { "orderByField": "logged_at" }
+      },
+      "id": "fetch-todays-meals",
+      "name": "Fetch Today's Meals",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [640, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      },
+      "notes": "Gets all meals logged today for running total context"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build context for Claude from today's meals\nconst meals = $input.all().map(i => i.json);\n\nlet runningTotal = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };\nlet mealList = [];\n\nfor (const meal of meals) {\n  runningTotal.calories += meal.calories || 0;\n  runningTotal.protein += parseFloat(meal.protein_g) || 0;\n  runningTotal.carbs += parseFloat(meal.carbs_g) || 0;\n  runningTotal.fat += parseFloat(meal.fat_g) || 0;\n  runningTotal.fiber += parseFloat(meal.fiber_g) || 0;\n  mealList.push(`- ${meal.meal_name}: ${meal.calories} kcal, P:${meal.protein_g}g C:${meal.carbs_g}g F:${meal.fat_g}g`);\n}\n\nconst today = new Date();\nconst dayOfWeek = today.getDay();\n// Assume training days are Mon, Wed, Fri (1, 3, 5)\nconst isTrainingDay = [1, 3, 5].includes(dayOfWeek);\nconst calorieGoal = isTrainingDay ? 2100 : 1900;\n\nconst context = `\n## Today's Date: ${today.toISOString().split('T')[0]}\n## Training Day: ${isTrainingDay ? 'YES (2100 kcal goal)' : 'NO (1900 kcal goal)'}\n## Meals so far today (${meals.length} meals):\n${mealList.length > 0 ? mealList.join('\\n') : 'No meals logged yet'}\n\n## Running Total:\nCalories: ${runningTotal.calories} / ${calorieGoal} kcal\nProtein: ${runningTotal.protein.toFixed(1)} / 170 g\nCarbs: ${runningTotal.carbs.toFixed(1)} g\nFat: ${runningTotal.fat.toFixed(1)} g\nFiber: ${runningTotal.fiber.toFixed(1)} g\nRemaining: ${calorieGoal - runningTotal.calories} kcal | ${(170 - runningTotal.protein).toFixed(1)}g protein\n`;\n\nreturn [{ json: { context, isTrainingDay, calorieGoal, runningTotal } }];"
+      },
+      "id": "build-meal-context",
+      "name": "Build Meal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 500],
+      "notes": "Builds running total context from today's meals to send to Claude"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 1024,\n  \"system\": {{ JSON.stringify($node['Read System Prompt'].json.data) }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($node['Build Meal Context'].json.context + '\\n\\nNew meal to log:\\n' + ($node['Telegram Trigger'].json.message.text || $node['Telegram Trigger'].json.message.caption || 'See attached photo')) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "claude-text-analysis",
+      "name": "Claude - Analyze Food (Text)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 400],
+      "notes": "Sends text meal description to Claude for macro estimation. For photo meals, a separate node handles the vision API call with base64 image."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's response and extract macro values\nconst response = $json.content[0].text;\n\n// Try to extract numbers from the response\nconst calorieMatch = response.match(/Calories:\\s*(\\d+)/i);\nconst proteinMatch = response.match(/P(?:rotein)?:\\s*([\\d.]+)/i);\nconst carbsMatch = response.match(/C(?:arbs)?:\\s*([\\d.]+)/i);\nconst fatMatch = response.match(/F(?:at)?:\\s*([\\d.]+)/i);\nconst fiberMatch = response.match(/Fiber:\\s*([\\d.]+)/i);\nconst sodiumMatch = response.match(/Sodium:\\s*([\\d.]+)/i);\n\n// Extract meal name (first line or from emoji line)\nconst lines = response.split('\\n').filter(l => l.trim());\nconst mealName = lines[0].replace(/^[^a-zA-Z]*/, '').trim();\n\n// Extract quality assessment\nlet foodQuality = 'decent';\nif (response.match(/ultra.processed|junk|lazy|terrible/i)) foodQuality = 'junk';\nelse if (response.match(/processed|mediocre|not great/i)) foodQuality = 'processed';\nelse if (response.match(/clean|perfect|excellent|great fuel/i)) foodQuality = 'clean';\n\n// Extract the comment line\nconst commentLines = response.split('\\n').filter(l => \n  l.startsWith('\"') || l.startsWith('"') || l.includes('—') || l.includes('-')\n);\nconst aiComment = commentLines.length > 0 ? commentLines[commentLines.length - 1].replace(/^[\""]|[\""]$/g, '').trim() : '';\n\nreturn [{\n  json: {\n    meal_name: mealName || 'Meal',\n    calories: parseInt(calorieMatch?.[1]) || 0,\n    protein_g: parseFloat(proteinMatch?.[1]) || 0,\n    carbs_g: parseFloat(carbsMatch?.[1]) || 0,\n    fat_g: parseFloat(fatMatch?.[1]) || 0,\n    fiber_g: fiberMatch ? parseFloat(fiberMatch[1]) : null,\n    sodium_mg: sodiumMatch ? parseFloat(sodiumMatch[1]) : null,\n    food_quality: foodQuality,\n    ai_comment: aiComment,\n    claude_response: response\n  }\n}];"
+      },
+      "id": "parse-claude-response",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400],
+      "notes": "Extracts structured macro data from Claude's text response"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": { "value": "public" },
+        "table": { "value": "food_logs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.format('yyyy-MM-dd') }}",
+            "meal_name": "={{ $json.meal_name }}",
+            "calories": "={{ $json.calories }}",
+            "protein_g": "={{ $json.protein_g }}",
+            "carbs_g": "={{ $json.carbs_g }}",
+            "fat_g": "={{ $json.fat_g }}",
+            "fiber_g": "={{ $json.fiber_g }}",
+            "sodium_mg": "={{ $json.sodium_mg }}",
+            "food_quality": "={{ $json.food_quality }}",
+            "ai_comment": "={{ $json.ai_comment }}",
+            "input_type": "text",
+            "is_training_day": "={{ $node['Build Meal Context'].json.isTrainingDay }}"
+          }
+        }
+      },
+      "id": "save-to-supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1520, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      },
+      "notes": "Inserts the meal into the food_logs table"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node['Telegram Trigger'].json.message.chat.id }}",
+        "text": "={{ $node['Parse Claude Response'].json.claude_response }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-telegram",
+      "name": "Reply on Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1740, 400],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "notes": "Sends Claude's running ledger response back to Telegram"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the system prompt from the file content or use embedded\nconst systemPrompt = `You are a strict, no-BS fitness & food coach communicating via Telegram. You track every meal the user logs and maintain a running daily macro ledger.\n\nBaseline & Goals (NEVER DROP):\n- Current weight: ~84 kg | Target: ~80 kg\n- BMR: 2216 kcal\n- Daily Goal: 1900 kcal (Rest days) | 2100 kcal (Training days)\n- Protein target: 170 g/day\n- Training plan: 3x weights, 1x cardio per week\n\nRules:\n1. Always show math: meal breakdown -> running total -> remaining vs goal\n2. Be conservative: overestimate calories when unsure\n3. Assume normal portions unless specified\n4. Never drop baseline stats\n\nResponse Format (per meal):\nMeal name\nCalories: XXX kcal\nP: XX g | C: XX g | F: XX g\n[Quality note if relevant]\n\n--- Daily Total ---\nCalories: XXXX / XXXX kcal (BMR: 2216)\nProtein: XXX / 170 g\nCarbs: XXX g | Fat: XXX g\nRemaining: XXX kcal | XXX g protein\n\nEnd with ONE line of blunt feedback.\nKeep responses concise for Telegram.`;\n\nreturn [{ json: { data: systemPrompt } }];"
+      },
+      "id": "read-system-prompt",
+      "name": "Read System Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 700],
+      "notes": "Embeds the system prompt for Claude. Edit this to customize the coaching style."
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Route Message Type", "type": "main", "index": 0 }]]
+    },
+    "Route Message Type": {
+      "main": [
+        [],
+        [{ "node": "Get Photo File", "type": "main", "index": 0 }],
+        [],
+        [{ "node": "Fetch Today's Meals", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Photo File": {
+      "main": [[{ "node": "Download Photo", "type": "main", "index": 0 }]]
+    },
+    "Fetch Today's Meals": {
+      "main": [[{ "node": "Build Meal Context", "type": "main", "index": 0 }]]
+    },
+    "Build Meal Context": {
+      "main": [[{ "node": "Claude - Analyze Food (Text)", "type": "main", "index": 0 }]]
+    },
+    "Read System Prompt": {
+      "main": [[]]
+    },
+    "Claude - Analyze Food (Text)": {
+      "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Claude Response": {
+      "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Save to Supabase": {
+      "main": [[{ "node": "Reply on Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "habit-tracker" }],
+  "pinData": {}
+}

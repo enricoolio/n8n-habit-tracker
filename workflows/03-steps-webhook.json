@@ -1,0 +1,81 @@
+{
+  "name": "Apple Health Steps Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "steps",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-steps",
+      "name": "Steps Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "notes": "Receives step count from iOS Shortcut. POST to /webhook/steps with JSON body: { \"steps\": 12345, \"date\": \"2026-03-12\" }"
+    },
+    {
+      "parameters": {
+        "jsCode": "const steps = $json.body?.steps || $json.query?.steps || 0;\nconst date = $json.body?.date || new Date().toISOString().split('T')[0];\nconst hit10k = steps >= 10000;\n\nreturn [{ json: { steps: parseInt(steps), date, hit10k } }];"
+      },
+      "id": "parse-steps",
+      "name": "Parse Step Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": { "value": "public" },
+        "table": { "value": "daily_summaries" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "steps": "={{ $json.steps }}",
+            "steps_10k": "={{ $json.hit10k }}"
+          }
+        }
+      },
+      "id": "upsert-steps",
+      "name": "Save Steps to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [640, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"steps\": {{ $node['Parse Step Data'].json.steps }}, \"hit_10k\": {{ $node['Parse Step Data'].json.hit10k }} }"
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [860, 300]
+    }
+  ],
+  "connections": {
+    "Steps Webhook": {
+      "main": [[{ "node": "Parse Step Data", "type": "main", "index": 0 }]]
+    },
+    "Parse Step Data": {
+      "main": [[{ "node": "Save Steps to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Save Steps to Supabase": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "habit-tracker" }]
+}

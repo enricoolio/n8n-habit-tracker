@@ -1,0 +1,209 @@
+{
+  "name": "Evening Check-in (9pm)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-9pm",
+      "name": "Every Day at 9pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300],
+      "notes": "Triggers every day at 9:00 PM local time"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": { "value": "public" },
+        "table": { "value": "food_logs" },
+        "filterType": "string",
+        "filterString": "=date=eq.{{ $now.format('yyyy-MM-dd') }}"
+      },
+      "id": "fetch-todays-food",
+      "name": "Fetch Today's Food",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [420, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the evening check-in message\nconst meals = $input.all().map(i => i.json);\n\nlet totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;\nfor (const m of meals) {\n  totalCal += m.calories || 0;\n  totalProtein += parseFloat(m.protein_g) || 0;\n  totalCarbs += parseFloat(m.carbs_g) || 0;\n  totalFat += parseFloat(m.fat_g) || 0;\n}\n\nconst today = new Date();\nconst dayOfWeek = today.getDay();\nconst isTrainingDay = [1, 3, 5].includes(dayOfWeek);\nconst goal = isTrainingDay ? 2100 : 1900;\n\nconst foodSummary = meals.length > 0 \n  ? `You logged ${meals.length} meals today: ${totalCal} kcal, ${totalProtein.toFixed(0)}g protein (goal: ${goal} kcal, 170g protein)`\n  : 'No food logged today!';\n\nconst onTrack = totalCal > 0 && totalCal <= goal + 100 && totalProtein >= 140;\n\nconst message = `Hey! Time for your evening check-in.\n\nFood: ${foodSummary}\n${onTrack ? 'Looking good on nutrition today.' : 'Nutrition could use some work.'}\n\nNow tell me about the rest of your day. Which of these did you do?\n\n- Sleep (8 hours last night?)\n- Workout\n- 10,000 steps\n- Read/Learn 30 min\n- Supplements\n- Calendar & Reflection\n- Positivity/Gratefulness\n\nJust reply with what you did (text or voice note). I\\'ll log everything for you.`;\n\nreturn [{ json: { message, totalCal, totalProtein, totalCarbs, totalFat, isTrainingDay, goal, mealCount: meals.length } }];"
+      },
+      "id": "build-checkin-message",
+      "name": "Build Check-in Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "send-checkin",
+      "name": "Send Check-in",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [860, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "wait-for-reply",
+      "name": "Wait for Reply",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [1080, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "notes": "NOTE: In practice, this is handled by the main Telegram Food Logger workflow detecting a 'check-in reply' context. See docs for how to wire this up."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the user's reply to determine which habits were completed\nconst reply = ($json.message?.text || '').toLowerCase();\n\n// Smart matching for each habit\nconst habits = {\n  sleep_8h: /sleep|slept|8\\s*h|well.rested|good\\s*night/i.test(reply),\n  eat_healthy: /eat|ate|healthy|clean|on\\s*plan|nutrition/i.test(reply) || $node['Build Check-in Message'].json.totalCal > 0,\n  workout_done: /workout|gym|train|weights|cardio|exercise|lift/i.test(reply),\n  steps_10k: /step|walk|10k|10,?000/i.test(reply),\n  read_30min: /read|book|learn|study|article|podcast/i.test(reply),\n  supplements: /supplement|pill|vitamin|magnesium|omega|creatine/i.test(reply),\n  positivity: /positiv|grateful|thankful|gratefulness|mindful|meditat/i.test(reply),\n  calendar_reflection: /calendar|reflect|plan|journal|review/i.test(reply)\n};\n\n// Count completed habits\nconst completed = Object.values(habits).filter(Boolean).length;\nconst total = Object.keys(habits).length;\nconst percentage = Math.round((completed / total) * 100);\n\nreturn [{ json: { habits, completed, total, percentage, rawReply: reply } }];"
+      },
+      "id": "parse-habits",
+      "name": "Parse Habits from Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.notion.com/v1/pages/{{ $json.notionPageId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Notion-Version", "value": "2022-06-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"8 hours sleep\": { \"checkbox\": {{ $json.habits.sleep_8h }} },\n    \"Eat healthy \": { \"checkbox\": {{ $json.habits.eat_healthy }} },\n    \"Work out\": { \"checkbox\": {{ $json.habits.workout_done }} },\n    \"10.000 Steps\": { \"checkbox\": {{ $json.habits.steps_10k }} },\n    \"Read 30 minutes\": { \"checkbox\": {{ $json.habits.read_30min }} },\n    \"Supplements\": { \"checkbox\": {{ $json.habits.supplements }} },\n    \"Positivity\": { \"checkbox\": {{ $json.habits.positivity }} },\n    \"Calendar & Reflection\": { \"checkbox\": {{ $json.habits.calendar_reflection }} }\n  }\n}"
+      },
+      "id": "update-notion",
+      "name": "Update Notion Habits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 200],
+      "notes": "Updates the Notion Habit Tracker database with today's habit completions. Requires finding today's page ID first (see setup docs)."
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": { "value": "public" },
+        "table": { "value": "daily_summaries" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.format('yyyy-MM-dd') }}",
+            "total_calories": "={{ $node['Build Check-in Message'].json.totalCal }}",
+            "total_protein_g": "={{ $node['Build Check-in Message'].json.totalProtein }}",
+            "total_carbs_g": "={{ $node['Build Check-in Message'].json.totalCarbs }}",
+            "total_fat_g": "={{ $node['Build Check-in Message'].json.totalFat }}",
+            "meal_count": "={{ $node['Build Check-in Message'].json.mealCount }}",
+            "is_training_day": "={{ $node['Build Check-in Message'].json.isTrainingDay }}",
+            "calorie_goal": "={{ $node['Build Check-in Message'].json.goal }}",
+            "sleep_8h": "={{ $json.habits.sleep_8h }}",
+            "eat_healthy": "={{ $json.habits.eat_healthy }}",
+            "workout_done": "={{ $json.habits.workout_done }}",
+            "steps_10k": "={{ $json.habits.steps_10k }}",
+            "read_30min": "={{ $json.habits.read_30min }}",
+            "supplements": "={{ $json.habits.supplements }}",
+            "positivity": "={{ $json.habits.positivity }}",
+            "calendar_reflection": "={{ $json.habits.calendar_reflection }}"
+          }
+        }
+      },
+      "id": "save-daily-summary",
+      "name": "Save Daily Summary",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1520, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=Logged! Today: {{ $node['Parse Habits from Reply'].json.completed }}/{{ $node['Parse Habits from Reply'].json.total }} habits ({{ $node['Parse Habits from Reply'].json.percentage }}%)\n\nFood: {{ $node['Build Check-in Message'].json.totalCal }} / {{ $node['Build Check-in Message'].json.goal }} kcal\nProtein: {{ Math.round($node['Build Check-in Message'].json.totalProtein) }} / 170g\n\n{{ $node['Parse Habits from Reply'].json.percentage >= 75 ? 'Solid day. Keep it up.' : $node['Parse Habits from Reply'].json.percentage >= 50 ? 'Decent effort. Room for improvement tomorrow.' : 'Rough day. Reset tomorrow - no excuses.' }}",
+        "additionalFields": {}
+      },
+      "id": "send-summary",
+      "name": "Send Day Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1740, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Day at 9pm": {
+      "main": [[{ "node": "Fetch Today's Food", "type": "main", "index": 0 }]]
+    },
+    "Fetch Today's Food": {
+      "main": [[{ "node": "Build Check-in Message", "type": "main", "index": 0 }]]
+    },
+    "Build Check-in Message": {
+      "main": [[{ "node": "Send Check-in", "type": "main", "index": 0 }]]
+    },
+    "Wait for Reply": {
+      "main": [[{ "node": "Parse Habits from Reply", "type": "main", "index": 0 }]]
+    },
+    "Parse Habits from Reply": {
+      "main": [
+        [
+          { "node": "Update Notion Habits", "type": "main", "index": 0 },
+          { "node": "Save Daily Summary", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Save Daily Summary": {
+      "main": [[{ "node": "Send Day Summary", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "habit-tracker" }]
+}
