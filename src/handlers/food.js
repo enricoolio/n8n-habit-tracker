@@ -24,52 +24,49 @@ function buildContext(meals, isTrainingDay, calorieGoal) {
 }
 
 function parseClaudeResponse(response) {
-  const calorieMatch = response.match(/Calories:\s*(\d+)/i);
-  const proteinMatch = response.match(/P(?:rotein)?:\s*([\d.]+)/i);
-  const carbsMatch = response.match(/C(?:arbs)?:\s*([\d.]+)/i);
-  const fatMatch = response.match(/F(?:at)?:\s*([\d.]+)/i);
-  const fiberMatch = response.match(/Fiber:\s*([\d.]+)/i);
-  const sodiumMatch = response.match(/Sodium:\s*([\d.]+)/i);
+  // Extract JSON block from Claude's response
+  const jsonMatch = response.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (!jsonMatch) {
+    return { is_food: false };
+  }
 
-  // Meal name from first line
-  const lines = response.split('\n').filter((l) => l.trim());
-  const mealName = lines[0]?.replace(/^[^a-zA-Z]*/, '').trim() || 'Meal';
+  try {
+    const data = JSON.parse(jsonMatch[1]);
+    if (!data.is_food) {
+      return { is_food: false };
+    }
 
-  // Food quality from keywords
-  let foodQuality = 'decent';
-  if (/ultra.processed|junk|lazy|terrible/i.test(response)) foodQuality = 'junk';
-  else if (/processed|mediocre|not great/i.test(response)) foodQuality = 'processed';
-  else if (/clean|perfect|excellent|great fuel/i.test(response)) foodQuality = 'clean';
+    // Meal type from current hour in Berlin
+    const hour = parseInt(
+      new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false })
+    );
+    let mealType = 'snack';
+    if (hour < 11) mealType = 'breakfast';
+    else if (hour < 14) mealType = 'lunch';
+    else if (hour >= 17) mealType = 'dinner';
 
-  // AI comment from last comment-like line
-  const commentLines = response
-    .split('\n')
-    .filter((l) => l.startsWith('"') || l.startsWith('\u201c') || l.includes('\u2014') || l.includes('- "'));
-  const aiComment = commentLines.length > 0
-    ? commentLines[commentLines.length - 1].replace(/^["\u201c]|["\u201d]$/g, '').trim()
-    : '';
+    return {
+      is_food: true,
+      meal_name: data.meal_name || 'Meal',
+      meal_type: mealType,
+      calories: parseInt(data.calories) || 0,
+      protein_g: parseFloat(data.protein_g) || 0,
+      carbs_g: parseFloat(data.carbs_g) || 0,
+      fat_g: parseFloat(data.fat_g) || 0,
+      fiber_g: data.fiber_g ? parseFloat(data.fiber_g) : null,
+      sodium_mg: data.sodium_mg ? parseFloat(data.sodium_mg) : null,
+      food_quality: data.food_quality || 'decent',
+      ai_comment: data.ai_comment || '',
+    };
+  } catch (e) {
+    console.error('Failed to parse Claude JSON:', e.message);
+    return { is_food: false };
+  }
+}
 
-  // Meal type from current hour in Berlin
-  const hour = parseInt(
-    new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false })
-  );
-  let mealType = 'snack';
-  if (hour < 11) mealType = 'breakfast';
-  else if (hour < 14) mealType = 'lunch';
-  else if (hour >= 17) mealType = 'dinner';
-
-  return {
-    meal_name: mealName,
-    meal_type: mealType,
-    calories: parseInt(calorieMatch?.[1]) || 0,
-    protein_g: parseFloat(proteinMatch?.[1]) || 0,
-    carbs_g: parseFloat(carbsMatch?.[1]) || 0,
-    fat_g: parseFloat(fatMatch?.[1]) || 0,
-    fiber_g: fiberMatch ? parseFloat(fiberMatch[1]) : null,
-    sodium_mg: sodiumMatch ? parseFloat(sodiumMatch[1]) : null,
-    food_quality: foodQuality,
-    ai_comment: aiComment,
-  };
+function stripJsonBlock(response) {
+  // Remove the JSON block so the user only sees the Telegram reply
+  return response.replace(/\n?```json\s*\n[\s\S]*?\n```\s*$/, '').trim();
 }
 
 export async function handleFoodMessage(ctx) {
@@ -119,23 +116,28 @@ export async function handleFoodMessage(ctx) {
     claudeResponse = await analyzeFood(foodCoachSystemPrompt, context, ctx.message.text);
   }
 
-  // Parse and save
+  // Parse structured data and send clean reply
   const parsed = parseClaudeResponse(claudeResponse);
-  await insertFoodLog({
-    date,
-    meal_name: parsed.meal_name,
-    meal_type: parsed.meal_type,
-    calories: parsed.calories,
-    protein_g: parsed.protein_g,
-    carbs_g: parsed.carbs_g,
-    fat_g: parsed.fat_g,
-    fiber_g: parsed.fiber_g,
-    sodium_mg: parsed.sodium_mg,
-    food_quality: parsed.food_quality,
-    ai_comment: parsed.ai_comment,
-    input_type: inputType,
-    is_training_day: isTrainingDay,
-  });
+  const telegramReply = stripJsonBlock(claudeResponse);
 
-  await ctx.reply(claudeResponse);
+  // Only save to DB if Claude identified this as actual food
+  if (parsed.is_food) {
+    await insertFoodLog({
+      date,
+      meal_name: parsed.meal_name,
+      meal_type: parsed.meal_type,
+      calories: parsed.calories,
+      protein_g: parsed.protein_g,
+      carbs_g: parsed.carbs_g,
+      fat_g: parsed.fat_g,
+      fiber_g: parsed.fiber_g,
+      sodium_mg: parsed.sodium_mg,
+      food_quality: parsed.food_quality,
+      ai_comment: parsed.ai_comment,
+      input_type: inputType,
+      is_training_day: isTrainingDay,
+    });
+  }
+
+  await ctx.reply(telegramReply);
 }
