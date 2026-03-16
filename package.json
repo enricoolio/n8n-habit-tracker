@@ -1,0 +1,23 @@
+{
+  "name": "habit-tracker",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Personal habit & calorie tracker via Telegram, powered by Claude AI",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@notionhq/client": "^2.2.15",
+    "@supabase/supabase-js": "^2.49.4",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "grammy": "^1.35.0",
+    "node-cron": "^3.0.3",
+    "openai": "^4.85.4"
+  }
+}
