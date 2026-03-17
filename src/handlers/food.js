@@ -1,6 +1,6 @@
 import { config, getTodayDate } from '../config.js';
 import { foodCoachSystemPrompt } from '../prompts.js';
-import { getTodayFoodLogs, insertFoodLog, getLatestFoodLog, updateFoodLog } from '../services/supabase.js';
+import { getTodayFoodLogs, insertFoodLog, updateFoodLog, deleteFoodLog } from '../services/supabase.js';
 import { analyzeFood, analyzeFoodPhoto } from '../services/claude.js';
 import { transcribeVoice } from '../services/whisper.js';
 
@@ -8,14 +8,15 @@ function buildContext(meals, isTrainingDay, calorieGoal) {
   const running = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
   const mealList = [];
 
-  for (const meal of meals) {
+  for (let i = 0; i < meals.length; i++) {
+    const meal = meals[i];
     running.calories += meal.calories || 0;
     running.protein += parseFloat(meal.protein_g) || 0;
     running.carbs += parseFloat(meal.carbs_g) || 0;
     running.fat += parseFloat(meal.fat_g) || 0;
     running.fiber += parseFloat(meal.fiber_g) || 0;
     mealList.push(
-      `- ${meal.meal_name}: ${meal.calories} kcal, P:${meal.protein_g}g C:${meal.carbs_g}g F:${meal.fat_g}g`
+      `- [#${i + 1}] ${meal.meal_name}: ${meal.calories} kcal, P:${meal.protein_g}g C:${meal.carbs_g}g F:${meal.fat_g}g`
     );
   }
 
@@ -48,6 +49,7 @@ function parseClaudeResponse(response) {
     return {
       is_food: true,
       action: data.action || 'log',
+      correct_index: data.correct_index || null,
       meal_name: data.meal_name || 'Meal',
       meal_type: mealType,
       calories: parseInt(data.calories) || 0,
@@ -123,32 +125,45 @@ export async function handleFoodMessage(ctx) {
 
   // Only save to DB if Claude identified this as actual food
   if (parsed.is_food) {
-    const foodData = {
-      meal_name: parsed.meal_name,
-      meal_type: parsed.meal_type,
-      calories: parsed.calories,
-      protein_g: parsed.protein_g,
-      carbs_g: parsed.carbs_g,
-      fat_g: parsed.fat_g,
-      fiber_g: parsed.fiber_g,
-      sodium_mg: parsed.sodium_mg,
-      food_quality: parsed.food_quality,
-      ai_comment: parsed.ai_comment,
-      input_type: inputType,
-      is_training_day: isTrainingDay,
-    };
-
-    if (parsed.action === 'correct_last') {
-      // Update the most recent food log entry instead of inserting a new one
-      const latest = await getLatestFoodLog(date);
-      if (latest) {
-        await updateFoodLog(latest.id, foodData);
-      } else {
-        // No entry to correct — insert as new
-        await insertFoodLog({ date, ...foodData });
+    if (parsed.action === 'delete' && parsed.correct_index) {
+      // Delete a specific meal by index
+      const target = todayMeals[parsed.correct_index - 1];
+      if (target) {
+        await deleteFoodLog(target.id);
+      }
+    } else if (parsed.action === 'correct' && parsed.correct_index) {
+      // Update a specific meal by index
+      const target = todayMeals[parsed.correct_index - 1];
+      if (target) {
+        await updateFoodLog(target.id, {
+          meal_name: parsed.meal_name,
+          calories: parsed.calories,
+          protein_g: parsed.protein_g,
+          carbs_g: parsed.carbs_g,
+          fat_g: parsed.fat_g,
+          fiber_g: parsed.fiber_g,
+          sodium_mg: parsed.sodium_mg,
+          food_quality: parsed.food_quality,
+          ai_comment: parsed.ai_comment,
+        });
       }
     } else {
-      await insertFoodLog({ date, ...foodData });
+      // New meal — insert
+      await insertFoodLog({
+        date,
+        meal_name: parsed.meal_name,
+        meal_type: parsed.meal_type,
+        calories: parsed.calories,
+        protein_g: parsed.protein_g,
+        carbs_g: parsed.carbs_g,
+        fat_g: parsed.fat_g,
+        fiber_g: parsed.fiber_g,
+        sodium_mg: parsed.sodium_mg,
+        food_quality: parsed.food_quality,
+        ai_comment: parsed.ai_comment,
+        input_type: inputType,
+        is_training_day: isTrainingDay,
+      });
     }
   }
 

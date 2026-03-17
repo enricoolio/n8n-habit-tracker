@@ -12,9 +12,14 @@ For a NEW meal:
 {"is_food": true, "action": "log", "meal_name": "Chicken Breast + Rice", "calories": 450, "protein_g": 42, "carbs_g": 50, "fat_g": 8, "food_quality": "clean"}
 \`\`\`
 
-If the user is CORRECTING the most recently logged meal (e.g. "that's not correct", "actually it was 300g", "fix the skyr"):
+To CORRECT a specific meal (use the [#N] index from the meal list in context):
 \`\`\`json
-{"is_food": true, "action": "correct_last", "meal_name": "Corrected Meal Name", "calories": 320, "protein_g": 39, "carbs_g": 30, "fat_g": 1, "food_quality": "clean"}
+{"is_food": true, "action": "correct", "correct_index": 2, "meal_name": "Arla Skyr Vanilla (450g)", "calories": 320, "protein_g": 39, "carbs_g": 34, "fat_g": 1, "food_quality": "clean"}
+\`\`\`
+
+To DELETE a specific meal:
+\`\`\`json
+{"is_food": true, "action": "delete", "correct_index": 3}
 \`\`\`
 
 If the message is NOT about food (question, chat, greeting, etc.):
@@ -24,7 +29,8 @@ If the message is NOT about food (question, chat, greeting, etc.):
 
 Rules:
 - food_quality must be one of: "clean", "decent", "processed", "junk"
-- "action" must be "log" (new meal) or "correct_last" (fix the last logged meal)
+- "action" must be "log", "correct", or "delete"
+- For "correct" and "delete", you MUST include "correct_index" matching the [#N] number from the meal list
 - Always include the JSON block. No exceptions.`;
 
 export async function analyzeFood(systemPrompt, context, userMessage) {
