@@ -33,42 +33,44 @@ Rules:
 - For "correct" and "delete", you MUST include "correct_index" matching the [#N] number from the meal list
 - Always include the JSON block. No exceptions.`;
 
-export async function analyzeFood(systemPrompt, context, userMessage) {
-  const response = await client.messages.create({
-    model: config.claudeModel,
-    max_tokens: 1024,
-    system: systemPrompt + JSON_INSTRUCTION,
-    messages: [
-      {
-        role: 'user',
-        content: `${context}\n\nUser message:\n${userMessage}`,
-      },
-    ],
+// Prepend the running totals context to the current user content
+function prependContext(contextHeader, userContent) {
+  if (typeof userContent === 'string') {
+    return `${contextHeader}\n\nUser message:\n${userContent}`;
+  }
+  // Array content (photo + text blocks) — prepend context to the text block
+  return userContent.map((block) => {
+    if (block.type === 'text') {
+      return { ...block, text: `${contextHeader}\n\nUser message:\n${block.text}` };
+    }
+    return block;
   });
-  return response.content[0].text;
 }
 
-export async function analyzeFoodPhoto(systemPrompt, context, base64, mediaType, caption) {
+export async function analyzeFoodWithHistory(
+  systemPrompt,
+  contextHeader,
+  history,
+  currentUserContent
+) {
+  const messages = [];
+
+  // Include prior conversation turns from today
+  if (history.length > 0) {
+    messages.push(...history);
+  }
+
+  // Add the current user message with running totals prepended
+  const userContent = prependContext(contextHeader, currentUserContent);
+  messages.push({ role: 'user', content: userContent });
+
   const response = await client.messages.create({
     model: config.claudeModel,
     max_tokens: 1024,
     system: systemPrompt + JSON_INSTRUCTION,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
-          },
-          {
-            type: 'text',
-            text: `${context}\n\nUser message:\n${caption || 'See attached photo'}`,
-          },
-        ],
-      },
-    ],
+    messages,
   });
+
   return response.content[0].text;
 }
 

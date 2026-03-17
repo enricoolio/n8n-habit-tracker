@@ -1,8 +1,17 @@
 import { config, getTodayDate } from '../config.js';
 import { foodCoachSystemPrompt } from '../prompts.js';
-import { getTodayFoodLogs, insertFoodLog, updateFoodLog, deleteFoodLog } from '../services/supabase.js';
-import { analyzeFood, analyzeFoodPhoto } from '../services/claude.js';
+import {
+  getTodayFoodLogs,
+  insertFoodLog,
+  updateFoodLog,
+  deleteFoodLog,
+} from '../services/supabase.js';
+import { analyzeFoodWithHistory } from '../services/claude.js';
 import { transcribeVoice } from '../services/whisper.js';
+import {
+  getConversationHistory,
+  appendToHistory,
+} from '../services/state.js';
 
 function buildContext(meals, isTrainingDay, calorieGoal) {
   const running = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
@@ -39,7 +48,11 @@ function parseClaudeResponse(response) {
 
     // Meal type from current hour in Berlin
     const hour = parseInt(
-      new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false })
+      new Date().toLocaleTimeString('en-GB', {
+        timeZone: 'Europe/Berlin',
+        hour: '2-digit',
+        hour12: false,
+      })
     );
     let mealType = 'snack';
     if (hour < 11) mealType = 'breakfast';
@@ -68,28 +81,31 @@ function parseClaudeResponse(response) {
 }
 
 function stripJsonBlock(response) {
-  // Remove the JSON block so the user only sees the Telegram reply
   return response.replace(/\n?```json\s*\n[\s\S]*?\n```\s*$/, '').trim();
 }
 
 export async function handleFoodMessage(ctx) {
   const date = getTodayDate();
+  const chatId = String(ctx.chat.id);
   const dayOfWeek = new Date().getDay();
   const isTrainingDay = config.trainingDays.includes(dayOfWeek);
-  const calorieGoal = isTrainingDay ? config.calorieGoalTraining : config.calorieGoalRest;
+  const calorieGoal = isTrainingDay
+    ? config.calorieGoalTraining
+    : config.calorieGoalRest;
 
-  // Fetch today's meals for context
+  // Fetch today's meals for running totals + conversation history
   const todayMeals = await getTodayFoodLogs(date);
   const context = buildContext(todayMeals, isTrainingDay, calorieGoal);
+  const history = await getConversationHistory(chatId);
 
-  let claudeResponse;
+  // Build current user content based on message type
+  let currentUserContent;
   let inputType = 'text';
 
   if (ctx.message.photo) {
-    // Photo: download and send to Claude vision
     inputType = 'photo';
     const photos = ctx.message.photo;
-    const largestPhoto = photos[photos.length - 1]; // Telegram sends multiple sizes
+    const largestPhoto = photos[photos.length - 1];
     const file = await ctx.api.getFile(largestPhoto.file_id);
     const url = `https://api.telegram.org/file/bot${config.telegramBotToken}/${file.file_path}`;
 
@@ -102,37 +118,49 @@ export async function handleFoodMessage(ctx) {
     else if (file.file_path.endsWith('.webp')) mediaType = 'image/webp';
 
     const caption = ctx.message.caption || 'See attached photo';
-    claudeResponse = await analyzeFoodPhoto(foodCoachSystemPrompt, context, base64, mediaType, caption);
+    currentUserContent = [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: base64 },
+      },
+      { type: 'text', text: caption },
+    ];
   } else if (ctx.message.voice) {
-    // Voice: download, transcribe with Whisper, then Claude
     inputType = 'voice';
     const file = await ctx.api.getFile(ctx.message.voice.file_id);
     const url = `https://api.telegram.org/file/bot${config.telegramBotToken}/${file.file_path}`;
 
     const res = await fetch(url);
     const buffer = Buffer.from(await res.arrayBuffer());
-    const transcription = await transcribeVoice(buffer, file.file_path.split('/').pop());
-
-    claudeResponse = await analyzeFood(foodCoachSystemPrompt, context, transcription);
+    const transcription = await transcribeVoice(
+      buffer,
+      file.file_path.split('/').pop()
+    );
+    currentUserContent = transcription;
   } else {
-    // Text
-    claudeResponse = await analyzeFood(foodCoachSystemPrompt, context, ctx.message.text);
+    currentUserContent = ctx.message.text;
   }
 
-  // Parse structured data and send clean reply
+  // Call Claude with full conversation history
+  const claudeResponse = await analyzeFoodWithHistory(
+    foodCoachSystemPrompt,
+    context,
+    history,
+    currentUserContent
+  );
+
+  // Parse structured data
   const parsed = parseClaudeResponse(claudeResponse);
   const telegramReply = stripJsonBlock(claudeResponse);
 
-  // Only save to DB if Claude identified this as actual food
+  // Save to DB based on action
   if (parsed.is_food) {
     if (parsed.action === 'delete' && parsed.correct_index) {
-      // Delete a specific meal by index
       const target = todayMeals[parsed.correct_index - 1];
       if (target) {
         await deleteFoodLog(target.id);
       }
     } else if (parsed.action === 'correct' && parsed.correct_index) {
-      // Update a specific meal by index
       const target = todayMeals[parsed.correct_index - 1];
       if (target) {
         await updateFoodLog(target.id, {
@@ -148,7 +176,6 @@ export async function handleFoodMessage(ctx) {
         });
       }
     } else {
-      // New meal — insert
       await insertFoodLog({
         date,
         meal_name: parsed.meal_name,
@@ -166,6 +193,9 @@ export async function handleFoodMessage(ctx) {
       });
     }
   }
+
+  // Append this turn to conversation history (photos → text summary)
+  await appendToHistory(chatId, currentUserContent, claudeResponse);
 
   await ctx.reply(telegramReply);
 }
