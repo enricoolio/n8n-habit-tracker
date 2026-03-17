@@ -1,6 +1,6 @@
 import { config, getTodayDate } from '../config.js';
 import { foodCoachSystemPrompt } from '../prompts.js';
-import { getTodayFoodLogs, insertFoodLog } from '../services/supabase.js';
+import { getTodayFoodLogs, insertFoodLog, getLatestFoodLog, updateFoodLog } from '../services/supabase.js';
 import { analyzeFood, analyzeFoodPhoto } from '../services/claude.js';
 import { transcribeVoice } from '../services/whisper.js';
 
@@ -47,6 +47,7 @@ function parseClaudeResponse(response) {
 
     return {
       is_food: true,
+      action: data.action || 'log',
       meal_name: data.meal_name || 'Meal',
       meal_type: mealType,
       calories: parseInt(data.calories) || 0,
@@ -122,8 +123,7 @@ export async function handleFoodMessage(ctx) {
 
   // Only save to DB if Claude identified this as actual food
   if (parsed.is_food) {
-    await insertFoodLog({
-      date,
+    const foodData = {
       meal_name: parsed.meal_name,
       meal_type: parsed.meal_type,
       calories: parsed.calories,
@@ -136,7 +136,20 @@ export async function handleFoodMessage(ctx) {
       ai_comment: parsed.ai_comment,
       input_type: inputType,
       is_training_day: isTrainingDay,
-    });
+    };
+
+    if (parsed.action === 'correct_last') {
+      // Update the most recent food log entry instead of inserting a new one
+      const latest = await getLatestFoodLog(date);
+      if (latest) {
+        await updateFoodLog(latest.id, foodData);
+      } else {
+        // No entry to correct — insert as new
+        await insertFoodLog({ date, ...foodData });
+      }
+    } else {
+      await insertFoodLog({ date, ...foodData });
+    }
   }
 
   await ctx.reply(telegramReply);

@@ -23,6 +23,37 @@ export async function insertFoodLog(record) {
   return data;
 }
 
+export async function getLatestFoodLog(date) {
+  const { data, error } = await supabase
+    .from('food_logs')
+    .select('*')
+    .eq('date', date)
+    .order('logged_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateFoodLog(id, updates) {
+  const { data, error } = await supabase
+    .from('food_logs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteFoodLog(id) {
+  const { error } = await supabase
+    .from('food_logs')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function getDateRangeFoodLogs(startDate, endDate) {
   const { data, error } = await supabase
     .from('food_logs')

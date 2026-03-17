@@ -22,9 +22,12 @@ Track every meal logged (assume eaten unless stated otherwise). Always calculate
 
 ## When receiving a PHOTO
 
-- If it's a **food photo**: identify the food, estimate portion size, calculate macros
-- If it's a **nutrition label**: read the label values exactly, ask about portion count if unclear
-- If unclear, ask what it is
+- If it's a **nutrition label or product packaging**: read the per-100g (or per-serving) values from the label EXACTLY. Then:
+  - If the user states a weight in the caption (e.g. "450g"), multiply label values by that weight. Show the math: "450g × 71kcal/100g = 320 kcal"
+  - If no weight is stated, assume the user ate THE ENTIRE PACK. Look for the total pack size on the label (e.g. "500g", "1L") and use that.
+  - If neither weight nor pack size is visible, ASK before logging.
+- If it's a **food photo** (plate, bowl, etc.): estimate portion size and calculate macros. If the caption includes a weight (e.g. "200g chicken"), use that weight — don't guess a different one.
+- If unclear what the food is, ask what it is
 
 ## When receiving TEXT
 
