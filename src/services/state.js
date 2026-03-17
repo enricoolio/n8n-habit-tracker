@@ -49,14 +49,25 @@ export async function appendToHistory(chatId, userContent, assistantResponse) {
   const messages =
     row?.context?.history_date === today ? row?.context?.messages || [] : [];
 
-  // Sanitize user content: replace base64 images with text summaries
+  // Strip context header from user content before storing
+  // (running totals are stale in history — only the current message should have them)
   let storedUserContent = userContent;
-  if (Array.isArray(userContent)) {
+  if (typeof storedUserContent === 'string') {
+    storedUserContent = storedUserContent.replace(/^[\s\S]*?User message:\n/m, '').trim();
+  }
+
+  // Sanitize user content: replace base64 images with text summaries
+  if (Array.isArray(storedUserContent)) {
     // Extract meal name from first line of Claude's response for the summary
     const firstLine = assistantResponse.split('\n').find((l) => l.trim()) || 'food photo';
     storedUserContent = userContent.map((block) => {
       if (block.type === 'image') {
         return { type: 'text', text: `[Photo sent: ${firstLine}]` };
+      }
+      if (block.type === 'text') {
+        // Strip context header from text blocks too
+        const stripped = block.text.replace(/^[\s\S]*?User message:\n/m, '').trim();
+        return { ...block, text: stripped };
       }
       return block;
     });
