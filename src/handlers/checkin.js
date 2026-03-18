@@ -1,7 +1,10 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { config, getTodayDate } from '../config.js';
 import { getTodayFoodLogs, getDailySummary, upsertDailySummary } from '../services/supabase.js';
 import { upsertHabits } from '../services/notion.js';
 import { setState, resetState } from '../services/state.js';
+
+const anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
 
 export async function sendEveningCheckin(bot) {
   const date = getTodayDate();
@@ -20,10 +23,6 @@ export async function sendEveningCheckin(bot) {
   const isTrainingDay = config.trainingDays.includes(dayOfWeek);
   const goal = isTrainingDay ? config.calorieGoalTraining : config.calorieGoalRest;
   const steps = summary?.steps || 0;
-
-  const foodSummary = meals.length > 0
-    ? `You logged ${meals.length} meals today: ${totalCal} kcal, ${Math.round(totalProtein)}g protein`
-    : 'No food logged today!';
 
   const calStatus = totalCal > 0 && totalCal <= goal + 100 ? '\u2705' : '\u26a0\ufe0f';
   const proteinStatus = totalProtein >= 140 ? '\u2705' : '\u26a0\ufe0f';
@@ -48,7 +47,6 @@ Just reply with what you did. I'll log everything.`;
 
   await bot.api.sendMessage(config.telegramChatId, message);
 
-  // Store context for when the reply comes back
   await setState(config.telegramChatId, 'awaiting_checkin', {
     totalCal,
     totalProtein: Math.round(totalProtein * 10) / 10,
@@ -61,21 +59,72 @@ Just reply with what you did. I'll log everything.`;
   });
 }
 
+/*
+  Parse habits via Claude instead of regex.
+
+  Why: regex can't handle negation — "i didn't take supplements"
+  matches /supplement/ → true. Claude understands natural language.
+
+  Flow:
+    user reply ("did workout, didn't sleep, no supps")
+        │
+        ▼
+    Claude → {"sleep_8h": false, "workout_done": true, ...}
+        │
+        ├──▶ Auto-override eat_healthy (from food data)
+        ├──▶ Auto-override steps_10k (from step count)
+        ├──▶ Notion → update checkboxes
+        ├──▶ Supabase → upsert daily_summaries
+        └──▶ Telegram → score reply
+*/
+async function parseHabitsWithClaude(reply) {
+  const response = await anthropic.messages.create({
+    model: config.claudeModel,
+    max_tokens: 256,
+    system: `You parse habit check-in messages. The user tells you what they did today.
+Return ONLY a JSON object with these boolean fields — true if they DID it, false if they DIDN'T or didn't mention it.
+Pay careful attention to negation: "didn't", "no", "not", "skipped" all mean FALSE.
+If a habit is not mentioned at all, default to FALSE.
+
+Fields:
+- sleep_8h: Did they sleep 8 hours last night?
+- workout_done: Did they work out today?
+- read_30min: Did they read or learn for 30 minutes?
+- supplements: Did they take their supplements?
+- positivity: Did they practice positivity/gratefulness/mindfulness?
+- calendar_reflection: Did they do calendar review & reflection?
+
+Return ONLY valid JSON, no markdown fences, no explanation.`,
+    messages: [{ role: 'user', content: reply }],
+  });
+
+  try {
+    const text = response.content[0].text.trim();
+    const jsonStr = text.replace(/^```json\s*\n?/, '').replace(/\n?```\s*$/, '');
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error('Failed to parse habit JSON from Claude:', e.message);
+    return {
+      sleep_8h: false,
+      workout_done: false,
+      read_30min: false,
+      supplements: false,
+      positivity: false,
+      calendar_reflection: false,
+    };
+  }
+}
+
 export async function handleCheckinReply(ctx, stateContext) {
-  const reply = (ctx.message.text || '').toLowerCase();
+  const reply = ctx.message.text || '';
   const date = getTodayDate();
 
-  // Parse habits from natural language
-  const habits = {
-    sleep_8h: /sleep|slept|8\s*h|well.rested|good\s*night/i.test(reply),
-    eat_healthy: /eat|ate|healthy|clean|on\s*plan|nutrition/i.test(reply),
-    workout_done: /workout|gym|train|weights|cardio|exercise|lift|run|yoga/i.test(reply),
-    steps_10k: /step|walk|10k|10,?000/i.test(reply),
-    read_30min: /read|book|learn|study|article|podcast/i.test(reply),
-    supplements: /supplement|pill|vitamin|magnesium|omega|creatine/i.test(reply),
-    positivity: /positiv|grateful|thankful|gratefulness|mindful|meditat/i.test(reply),
-    calendar_reflection: /calendar|reflect|plan|journal|review/i.test(reply),
-  };
+  // Parse habits with Claude (understands negation + natural language)
+  const habits = await parseHabitsWithClaude(reply);
+
+  // Ensure auto-derived fields exist
+  habits.eat_healthy = habits.eat_healthy || false;
+  habits.steps_10k = habits.steps_10k || false;
 
   const { totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, goal = 1900, isTrainingDay = false, mealCount = 0, steps = 0 } = stateContext;
 
