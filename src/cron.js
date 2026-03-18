@@ -70,7 +70,7 @@ export async function sendWeeklyRecap(bot) {
   const prompt = `Generate a weekly fitness & nutrition recap based on this data. Be blunt and actionable.
 
 WEEK DATA (${days} days tracked):
-- Avg daily calories: ${Math.round(totalCal / days)} kcal (goal: ~1900-2100)
+- Avg daily calories: ${Math.round(totalCal / days)} kcal (goal: 1900)
 - Avg daily protein: ${(totalProtein / days).toFixed(1)}g (goal: 170g)
 - Avg daily carbs: ${(totalCarbs / days).toFixed(1)}g
 - Avg daily fat: ${(totalFat / days).toFixed(1)}g

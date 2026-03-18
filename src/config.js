@@ -25,9 +25,7 @@ export const config = Object.freeze({
   notionApiKey: process.env.NOTION_API_KEY,
   notionDatabaseId: process.env.NOTION_DATABASE_ID,
   port: parseInt(process.env.PORT || '3000', 10),
-  trainingDays: [1, 3, 5], // Mon, Wed, Fri
-  calorieGoalTraining: 2100,
-  calorieGoalRest: 1900,
+  calorieGoal: 1900,
   proteinTarget: 170,
   claudeModel: 'claude-haiku-4-5-20251001',
 });

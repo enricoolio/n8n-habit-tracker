@@ -13,7 +13,7 @@ import {
   appendToHistory,
 } from '../services/state.js';
 
-function buildContext(meals, isTrainingDay, calorieGoal) {
+function buildContext(meals, calorieGoal) {
   const running = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
   const mealList = [];
 
@@ -30,7 +30,7 @@ function buildContext(meals, isTrainingDay, calorieGoal) {
   }
 
   const date = getTodayDate();
-  return `\n## Today's Date: ${date}\n## Training Day: ${isTrainingDay ? 'YES (2100 kcal goal)' : 'NO (1900 kcal goal)'}\n## Meals so far today (${meals.length} meals):\n${mealList.length > 0 ? mealList.join('\n') : 'No meals logged yet'}\n\n## Running Total:\nCalories: ${running.calories} / ${calorieGoal} kcal\nProtein: ${running.protein.toFixed(1)} / ${config.proteinTarget} g\nCarbs: ${running.carbs.toFixed(1)} g\nFat: ${running.fat.toFixed(1)} g\nFiber: ${running.fiber.toFixed(1)} g\nRemaining: ${calorieGoal - running.calories} kcal | ${(config.proteinTarget - running.protein).toFixed(1)}g protein\n`;
+  return `\n## Today's Date: ${date}\n## Daily Goal: ${calorieGoal} kcal\n## Meals so far today (${meals.length} meals):\n${mealList.length > 0 ? mealList.join('\n') : 'No meals logged yet'}\n\n## Running Total:\nCalories: ${running.calories} / ${calorieGoal} kcal\nProtein: ${running.protein.toFixed(1)} / ${config.proteinTarget} g\nCarbs: ${running.carbs.toFixed(1)} g\nFat: ${running.fat.toFixed(1)} g\nFiber: ${running.fiber.toFixed(1)} g\nRemaining: ${calorieGoal - running.calories} kcal | ${(config.proteinTarget - running.protein).toFixed(1)}g protein\n`;
 }
 
 function parseClaudeResponse(response) {
@@ -87,15 +87,11 @@ function stripJsonBlock(response) {
 export async function handleFoodMessage(ctx) {
   const date = getTodayDate();
   const chatId = String(ctx.chat.id);
-  const dayOfWeek = new Date().getDay();
-  const isTrainingDay = config.trainingDays.includes(dayOfWeek);
-  const calorieGoal = isTrainingDay
-    ? config.calorieGoalTraining
-    : config.calorieGoalRest;
+  const calorieGoal = config.calorieGoal;
 
   // Fetch today's meals for running totals + conversation history
   const todayMeals = await getTodayFoodLogs(date);
-  const context = buildContext(todayMeals, isTrainingDay, calorieGoal);
+  const context = buildContext(todayMeals, calorieGoal);
   const history = await getConversationHistory(chatId);
 
   // Build current user content based on message type
@@ -189,7 +185,6 @@ export async function handleFoodMessage(ctx) {
         food_quality: parsed.food_quality,
         ai_comment: parsed.ai_comment,
         input_type: inputType,
-        is_training_day: isTrainingDay,
       });
     }
   }

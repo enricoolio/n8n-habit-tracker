@@ -11,7 +11,6 @@ export async function handleCommand(ctx) {
         `Available commands:
 /help - Show this message
 /totals - Today's food totals
-/training - Check if today is a training day
 /recap - Trigger weekly recap
 
 Or just send me:
@@ -38,9 +37,7 @@ Or just send me:
         totalFat += parseFloat(m.fat_g) || 0;
       }
 
-      const dayOfWeek = new Date().getDay();
-      const isTrainingDay = config.trainingDays.includes(dayOfWeek);
-      const goal = isTrainingDay ? config.calorieGoalTraining : config.calorieGoalRest;
+      const goal = config.calorieGoal;
 
       await ctx.reply(
         `\ud83d\udcca Today's Totals (${meals.length} meals)
@@ -51,18 +48,6 @@ Carbs: ${totalCarbs.toFixed(1)}g
 Fat: ${totalFat.toFixed(1)}g
 
 Remaining: ${goal - totalCal} kcal | ${(config.proteinTarget - totalProtein).toFixed(1)}g protein`
-      );
-      break;
-    }
-
-    case '/training': {
-      const dayOfWeek = new Date().getDay();
-      const isTrainingDay = config.trainingDays.includes(dayOfWeek);
-      const goal = isTrainingDay ? config.calorieGoalTraining : config.calorieGoalRest;
-      await ctx.reply(
-        isTrainingDay
-          ? `\ud83c\udfcb\ufe0f Today is a TRAINING day. Goal: ${goal} kcal.`
-          : `\ud83d\udecb\ufe0f Today is a REST day. Goal: ${goal} kcal.`
       );
       break;
     }

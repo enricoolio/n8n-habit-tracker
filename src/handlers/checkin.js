@@ -19,9 +19,7 @@ export async function sendEveningCheckin(bot) {
     totalFat += parseFloat(m.fat_g) || 0;
   }
 
-  const dayOfWeek = new Date().getDay();
-  const isTrainingDay = config.trainingDays.includes(dayOfWeek);
-  const goal = isTrainingDay ? config.calorieGoalTraining : config.calorieGoalRest;
+  const goal = config.calorieGoal;
   const steps = summary?.steps || 0;
 
   const calStatus = totalCal > 0 && totalCal <= goal + 100 ? '\u2705' : '\u26a0\ufe0f';
@@ -52,7 +50,6 @@ Just reply with what you did. I'll log everything.`;
     totalProtein: Math.round(totalProtein * 10) / 10,
     totalCarbs: Math.round(totalCarbs * 10) / 10,
     totalFat: Math.round(totalFat * 10) / 10,
-    isTrainingDay,
     goal,
     mealCount: meals.length,
     steps,
@@ -126,7 +123,7 @@ export async function handleCheckinReply(ctx, stateContext) {
   habits.eat_healthy = habits.eat_healthy || false;
   habits.steps_10k = habits.steps_10k || false;
 
-  const { totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, goal = 1900, isTrainingDay = false, mealCount = 0, steps = 0 } = stateContext;
+  const { totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, goal = 1900, mealCount = 0, steps = 0 } = stateContext;
 
   // Auto-derive eat_healthy from food data
   if (totalCal > 0 && totalCal <= goal + 100 && totalProtein >= 140) {
@@ -155,7 +152,6 @@ export async function handleCheckinReply(ctx, stateContext) {
     meal_count: mealCount,
     steps,
     calorie_goal: goal,
-    is_training_day: isTrainingDay,
     calorie_balance: goal - totalCal,
     sleep_8h: habits.sleep_8h,
     eat_healthy: habits.eat_healthy,
