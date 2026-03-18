@@ -132,8 +132,8 @@ Keep it under 200 words. Telegram format.`;
     ai_weekly_summary: recapText,
   });
 
-  // Send to Telegram
-  await bot.api.sendMessage(config.telegramChatId, `\ud83d\udcca WEEKLY RECAP\n\n${recapText}`);
+  // Send to Telegram — recap + weigh-in reminder
+  await bot.api.sendMessage(config.telegramChatId, `\ud83d\udcca WEEKLY RECAP\n\n${recapText}\n\n---\n\n\u2696\ufe0f **Weigh-in reminder:** Step on the scale tomorrow morning (fasted) and send me your weight, e.g. "92.4 kg".`);
 }
 
 export function startCronJobs(bot) {
