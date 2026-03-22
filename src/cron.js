@@ -3,10 +3,46 @@ import { config } from './config.js';
 import { weeklyRecapSystemPrompt } from './prompts.js';
 import { sendEveningCheckin } from './handlers/checkin.js';
 import { getDateRangeFoodLogs, getDateRangeSummaries, insertWeeklyRecap } from './services/supabase.js';
-import { generateWeeklyRecap } from './services/claude.js';
+import { generateWeeklyRecap, shouldNudge } from './services/claude.js';
+import { getConversationHistory, appendToHistory } from './services/state.js';
+
+/*
+  Cron schedule (Europe/Berlin):
+
+  10:00 AM  — nudge: "Log breakfast?"     (if not mentioned)
+   2:00 PM  — nudge: "Had lunch?"          (if not mentioned)
+   6:00 PM  — nudge: "Did you work out?"   (if not mentioned)
+  10:00 PM  — end-of-day summary + habit check-in
+  Sunday 8PM — weekly recap
+*/
+
+const NUDGE_MESSAGES = {
+  breakfast: "Hey — did you have breakfast? Log it when you get a chance.",
+  lunch: "Lunch time — what did you eat? Or are you eating later?",
+  workout: "Did you work out today? Let me know.",
+};
+
+async function sendNudge(bot, topic) {
+  const chatId = String(config.telegramChatId);
+  try {
+    const history = await getConversationHistory(chatId);
+    const nudge = await shouldNudge(history, topic);
+
+    if (nudge) {
+      const message = NUDGE_MESSAGES[topic];
+      await bot.api.sendMessage(config.telegramChatId, message);
+      // Add nudge to conversation history so Claude knows it was sent
+      await appendToHistory(chatId, `[System nudge about ${topic}]`, message);
+      console.log(`Nudge sent: ${topic}`);
+    } else {
+      console.log(`Nudge skipped: ${topic} (already mentioned)`);
+    }
+  } catch (err) {
+    console.error(`Nudge error (${topic}):`, err.message);
+  }
+}
 
 export async function sendWeeklyRecap(bot) {
-  // Calculate date range (last 7 days ending today)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
   const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
     .toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
@@ -16,14 +52,12 @@ export async function sendWeeklyRecap(bot) {
 
   const days = summaries.length || 1;
 
-  // Food totals
   const totalCal = foods.reduce((s, f) => s + (f.calories || 0), 0);
   const totalProtein = foods.reduce((s, f) => s + (parseFloat(f.protein_g) || 0), 0);
   const totalCarbs = foods.reduce((s, f) => s + (parseFloat(f.carbs_g) || 0), 0);
   const totalFat = foods.reduce((s, f) => s + (parseFloat(f.fat_g) || 0), 0);
   const totalFiber = foods.reduce((s, f) => s + (parseFloat(f.fiber_g) || 0), 0);
 
-  // Habit completions
   const habits = {
     sleep: summaries.filter((s) => s.sleep_8h).length,
     eat: summaries.filter((s) => s.eat_healthy).length,
@@ -35,12 +69,10 @@ export async function sendWeeklyRecap(bot) {
     reflection: summaries.filter((s) => s.calendar_reflection).length,
   };
 
-  // Steps
   const totalSteps = summaries.reduce((s, d) => s + (d.steps || 0), 0);
   const avgSteps = Math.round(totalSteps / days);
   const daysWithTenKSteps = summaries.filter((s) => s.steps_10k).length;
 
-  // Daily habit percentages
   const dailyPercentages = summaries.map((s) => {
     const checked = [s.sleep_8h, s.eat_healthy, s.workout_done, s.steps_10k, s.read_30min, s.supplements, s.positivity, s.calendar_reflection].filter(Boolean).length;
     return (checked / 8) * 100;
@@ -49,7 +81,6 @@ export async function sendWeeklyRecap(bot) {
     ? (dailyPercentages.reduce((a, b) => a + b, 0) / dailyPercentages.length).toFixed(2)
     : '0.00';
 
-  // Food quality breakdown
   const qualityCounts = { clean: 0, decent: 0, processed: 0, junk: 0 };
   for (const f of foods) {
     if (f.food_quality && qualityCounts[f.food_quality] !== undefined) {
@@ -57,7 +88,6 @@ export async function sendWeeklyRecap(bot) {
     }
   }
 
-  // Best and worst days
   let bestDay = null, worstDay = null, bestPct = -1, worstPct = 101;
   for (const s of summaries) {
     const checked = [s.sleep_8h, s.eat_healthy, s.workout_done, s.steps_10k, s.read_30min, s.supplements, s.positivity, s.calendar_reflection].filter(Boolean).length;
@@ -66,7 +96,6 @@ export async function sendWeeklyRecap(bot) {
     if (pct < worstPct) { worstPct = pct; worstDay = s.date; }
   }
 
-  // Build Claude prompt
   const prompt = `Generate a weekly fitness & nutrition recap based on this data. Be blunt and actionable.
 
 WEEK DATA (${days} days tracked):
@@ -103,10 +132,8 @@ Provide:
 
 Keep it under 200 words. Telegram format.`;
 
-  // Call Claude
   const recapText = await generateWeeklyRecap(weeklyRecapSystemPrompt, prompt);
 
-  // Save to DB
   await insertWeeklyRecap({
     week_start: sixDaysAgo,
     week_end: today,
@@ -132,15 +159,19 @@ Keep it under 200 words. Telegram format.`;
     ai_weekly_summary: recapText,
   });
 
-  // Send to Telegram — recap + weigh-in reminder
-  await bot.api.sendMessage(config.telegramChatId, `\ud83d\udcca WEEKLY RECAP\n\n${recapText}\n\n---\n\n\u2696\ufe0f **Weigh-in reminder:** Step on the scale tomorrow morning (fasted) and send me your weight, e.g. "92.4 kg".`);
+  await bot.api.sendMessage(config.telegramChatId, `📊 WEEKLY RECAP\n\n${recapText}\n\n---\n\n⚖️ **Weigh-in reminder:** Step on the scale tomorrow morning (fasted) and send me your weight, e.g. "92.4 kg".`);
 }
 
 export function startCronJobs(bot) {
-  // Daily 9pm CET — evening check-in
-  cron.schedule('0 21 * * *', () => {
-    console.log('Cron: sending evening check-in');
-    sendEveningCheckin(bot).catch((err) => console.error('Evening check-in error:', err));
+  // Smart nudges
+  cron.schedule('0 10 * * *', () => sendNudge(bot, 'breakfast'), { timezone: 'Europe/Berlin' });
+  cron.schedule('0 14 * * *', () => sendNudge(bot, 'lunch'), { timezone: 'Europe/Berlin' });
+  cron.schedule('0 18 * * *', () => sendNudge(bot, 'workout'), { timezone: 'Europe/Berlin' });
+
+  // Daily 10pm CET — end-of-day summary
+  cron.schedule('0 22 * * *', () => {
+    console.log('Cron: sending evening summary');
+    sendEveningCheckin(bot).catch((err) => console.error('Evening summary error:', err));
   }, { timezone: 'Europe/Berlin' });
 
   // Sunday 8pm CET — weekly recap
@@ -149,5 +180,5 @@ export function startCronJobs(bot) {
     sendWeeklyRecap(bot).catch((err) => console.error('Weekly recap error:', err));
   }, { timezone: 'Europe/Berlin' });
 
-  console.log('Cron jobs scheduled (Europe/Berlin): check-in 9pm daily, recap 8pm Sunday)');
+  console.log('Cron jobs scheduled (Europe/Berlin): nudges 10am/2pm/6pm, summary 10pm, recap Sun 8pm');
 }
